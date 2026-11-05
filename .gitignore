@@ -1,0 +1,6 @@
+node_modules/
+dist/
+release/
+.pkg-cache/
+*.log
+.DS_Store

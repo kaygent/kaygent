@@ -1,0 +1,47 @@
+export type ModalKind = 'add' | 'edit' | 'delete' | 'help';
+
+const hints = {
+  full: '←→ columns · ↑↓ tasks · a add · e edit · t tags · d delete · < > stage · [ ] reorder · Space advance · ? help · q quit',
+  medium:
+    '←→ cols · ↑↓ tasks · a add · e edit · t tags · d delete · <> stage · [] reorder · ? help · q quit',
+  compact:
+    '←→↑↓ nav · a add · e edit · t tags · d delete · <> stage · [] reorder · ? help · q quit',
+  narrow:
+    '←→↑↓ nav · a add · e edit · d del · <> stage · [] reorder · ? help · q quit',
+  tiny: '←→↑↓ nav · a add · e edit · d del · <> stage · ? help · q quit',
+  form: 'Tab / ↑↓  switch field  ·  Enter save  ·  Esc cancel',
+  delete: 'y / Enter  delete  ·  n / Esc  cancel',
+  help: 'Esc / ?  close help',
+} as const;
+
+export function getKeyHints(modalKind: ModalKind | null, columns: number): string {
+  if (modalKind === 'add' || modalKind === 'edit') {
+    return hints.form;
+  }
+
+  if (modalKind === 'delete') {
+    return hints.delete;
+  }
+
+  if (modalKind === 'help') {
+    return hints.help;
+  }
+
+  if (columns >= 124) {
+    return hints.full;
+  }
+
+  if (columns >= 101) {
+    return hints.medium;
+  }
+
+  if (columns >= 91) {
+    return hints.compact;
+  }
+
+  if (columns >= 79) {
+    return hints.narrow;
+  }
+
+  return hints.tiny;
+}

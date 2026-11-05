@@ -1,0 +1,42 @@
+{
+  "name": "qanban",
+  "version": "1.0.0",
+  "description": "A polished React-powered terminal kanban todo manager",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx src/cli.tsx",
+    "start": "tsx src/cli.tsx",
+    "test": "tsx --test test/board.test.ts test/store.test.ts test/layout.test.ts test/ui.test.tsx",
+    "typecheck": "tsc --noEmit",
+    "bundle": "node scripts/build.mjs",
+    "preview": "tsx scripts/preview.tsx 120 32",
+    "build:exe": "node scripts/build.mjs && node scripts/package-exe.mjs",
+    "build": "npm run typecheck && npm test && npm run build:exe"
+  },
+  "keywords": [
+    "todo",
+    "kanban",
+    "terminal",
+    "react",
+    "ink",
+    "cli"
+  ],
+  "license": "Apache-2.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "ink": "6.8.0",
+    "react": "19.3.1",
+    "string-width": "^7.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.0",
+    "@types/react": "^19.3.0",
+    "@yao-pkg/pkg": "6.24.0",
+    "esbuild": "0.28.2",
+    "ink-testing-library": "4.0.0",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3"
+  }
+}
