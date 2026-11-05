@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-label="Qanban qb task cards icon">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="512" y2="512" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#101b2e"/>
+      <stop offset="1" stop-color="#08101f"/>
+    </linearGradient>
+    <linearGradient id="cardLeft" x1="42" y1="160" x2="237" y2="352" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#fbcfe8"/>
+      <stop offset="1" stop-color="#f472b6"/>
+    </linearGradient>
+    <linearGradient id="cardRight" x1="275" y1="160" x2="470" y2="352" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#67e8f9"/>
+      <stop offset="1" stop-color="#a5f3fc"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+  <rect x="18" y="18" width="476" height="476" rx="96" fill="none" stroke="#263650" stroke-width="2"/>
+
+  <rect x="42" y="160" width="195" height="192" rx="46" fill="url(#cardLeft)"/>
+  <rect x="275" y="160" width="195" height="192" rx="46" fill="url(#cardRight)"/>
+
+  <g fill="#08101f" opacity="0.82">
+    <rect x="74" y="208" width="130" height="16" rx="8"/>
+    <rect x="74" y="248" width="96" height="16" rx="8"/>
+    <rect x="74" y="288" width="112" height="16" rx="8"/>
+    <rect x="308" y="208" width="112" height="16" rx="8"/>
+    <rect x="308" y="248" width="130" height="16" rx="8"/>
+    <rect x="308" y="288" width="88" height="16" rx="8"/>
+  </g>
+
+  <rect x="236" y="96" width="40" height="320" rx="20" fill="#e6edf7"/>
+</svg>

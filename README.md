@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/icon.svg" width="120" alt="Qanban icon">
+</p>
+
 # Qanban
 
 A polished, React-powered terminal kanban board for managing a todo list without

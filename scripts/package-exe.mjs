@@ -45,6 +45,11 @@ if (result.status !== 0) {
   throw new Error(`pkg exited with status ${result.status}`);
 }
 
+await mkdir(resolve(projectRoot, 'release', 'assets'), { recursive: true });
+await copyFile(
+  resolve(projectRoot, 'assets', 'icon.svg'),
+  resolve(projectRoot, 'release', 'assets', 'icon.svg'),
+);
 await copyFile(
   resolve(projectRoot, 'README.md'),
   resolve(projectRoot, 'release', 'README.md'),

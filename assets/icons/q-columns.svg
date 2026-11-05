@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-label="Qanban Q kanban columns icon">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="512" y2="512" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#101b2e"/>
+      <stop offset="1" stop-color="#08101f"/>
+    </linearGradient>
+    <linearGradient id="brand" x1="110" y1="110" x2="414" y2="414" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#fbcfe8"/>
+      <stop offset="0.45" stop-color="#f472b6"/>
+      <stop offset="1" stop-color="#db2777"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+  <rect x="18" y="18" width="476" height="476" rx="96" fill="none" stroke="#263650" stroke-width="2"/>
+
+  <circle cx="256" cy="248" r="146" fill="none" stroke="url(#brand)" stroke-width="56"/>
+  <line x1="348" y1="340" x2="414" y2="414" stroke="url(#brand)" stroke-width="56" stroke-linecap="round"/>
+
+  <rect x="170" y="198" width="34" height="104" rx="17" fill="#38bdf8"/>
+  <rect x="239" y="168" width="34" height="160" rx="17" fill="#fbbf24"/>
+  <rect x="308" y="214" width="34" height="82" rx="17" fill="#34d399"/>
+
+  <g fill="url(#bg)">
+    <rect x="170" y="229" width="34" height="8" rx="4"/>
+    <rect x="170" y="265" width="34" height="8" rx="4"/>
+    <rect x="239" y="217" width="34" height="8" rx="4"/>
+    <rect x="239" y="271" width="34" height="8" rx="4"/>
+    <rect x="308" y="237" width="34" height="8" rx="4"/>
+    <rect x="308" y="265" width="34" height="8" rx="4"/>
+  </g>
+</svg>
