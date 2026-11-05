@@ -7,6 +7,7 @@ interface TaskCardProps {
   stageColor: string;
   highlighted: boolean;
   completed: boolean;
+  hasSession: boolean;
   marginBottom: number;
 }
 
@@ -15,6 +16,7 @@ export function TaskCard({
   stageColor,
   highlighted,
   completed,
+  hasSession,
   marginBottom,
 }: TaskCardProps) {
   const titleColor = completed
@@ -55,6 +57,7 @@ export function TaskCard({
         ) : (
           <Text color={palette.dim}>untagged</Text>
         )}
+        {hasSession ? <Text color={palette.success}>  ● live</Text> : null}
       </Text>
     </Box>
   );

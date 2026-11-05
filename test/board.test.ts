@@ -13,12 +13,18 @@ import {
   nextStage,
   removeTask,
   reorderTask,
+  setTaskSession,
   updateTask,
+  type Stage,
 } from '../src/board';
 
 const NOW = new Date('2026-01-02T03:04:05.000Z');
 
-function taskTitle(board: ReturnType<typeof createEmptyBoard>, stage: 'new' | 'active' | 'inprogress' | 'completed', index = 0): string {
+function taskTitle(
+  board: ReturnType<typeof createEmptyBoard>,
+  stage: Stage,
+  index = 0,
+): string {
   return board.columns[stage][index]?.title ?? '';
 }
 
@@ -57,6 +63,52 @@ test('adds tasks to New with tags and timestamps', () => {
 
 test('rejects empty titles', () => {
   assert.throws(() => addTask(createEmptyBoard(), { title: '   ' }), /needs a title/i);
+});
+
+test('uses the four default workflow stages', () => {
+  const board = createEmptyBoard();
+  assert.equal(board.version, 2);
+  assert.deepEqual(Object.keys(board.columns), [
+    'new',
+    'active',
+    'paused',
+    'completed',
+  ]);
+});
+
+test('attaches and clears terminal sessions without losing task data', () => {
+  const added = addTask(
+    createEmptyBoard(),
+    { title: 'Agent task', tags: 'work' },
+    { id: 'task-session', now: NOW },
+  );
+  const session = {
+    provider: 'wezterm',
+    id: '3',
+    title: 'Qanban · Agent task',
+    createdAt: NOW.toISOString(),
+  };
+
+  const withSession = setTaskSession(
+    added.board,
+    'new',
+    'task-session',
+    session,
+  );
+  assert.deepEqual(withSession.columns.new[0]?.session, session);
+  assert.equal(withSession.columns.new[0]?.title, 'Agent task');
+
+  const cleared = setTaskSession(
+    withSession,
+    'new',
+    'task-session',
+    undefined,
+  );
+  assert.equal('session' in (cleared.columns.new[0] ?? {}), false);
+  assert.equal(
+    setTaskSession(cleared, 'new', 'missing', session),
+    cleared,
+  );
 });
 
 test('updates title and tags without changing creation time', () => {
@@ -101,7 +153,7 @@ test('moves a task between columns without mutating the old board', () => {
     board,
     'new',
     1,
-    'inprogress',
+    'paused',
     undefined,
     { now: new Date('2026-01-02T05:00:00.000Z') },
   );
@@ -109,7 +161,7 @@ test('moves a task between columns without mutating the old board', () => {
   assert.equal(moved.moved, true);
   assert.equal(moved.toIndex, 0);
   assert.deepEqual(moved.board.columns.new.map((task) => task.title), ['A', 'C']);
-  assert.deepEqual(moved.board.columns.inprogress.map((task) => task.title), ['B']);
+  assert.deepEqual(moved.board.columns.paused.map((task) => task.title), ['B']);
   assert.deepEqual(board.columns.new.map((task) => task.title), ['A', 'B', 'C']);
 });
 
@@ -160,7 +212,7 @@ test('returns adjacent stages and collects unique tags', () => {
   assert.equal(nextStage('new'), 'active');
   assert.equal(nextStage('completed'), undefined);
   assert.equal(previousStage('new'), undefined);
-  assert.equal(previousStage('completed'), 'inprogress');
+  assert.equal(previousStage('completed'), 'paused');
 
   let board = createEmptyBoard();
   board = addTask(board, { title: 'One', tags: 'work, Home' }, { now: NOW }).board;

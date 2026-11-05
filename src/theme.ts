@@ -1,4 +1,4 @@
-import type { Stage } from './board';
+import { STAGE_IDS, type Stage } from './board';
 
 export const palette = {
   background: '#08101f',
@@ -31,7 +31,7 @@ export interface StageUi {
   emptyHint: string;
 }
 
-export const stageUi: Record<Stage, StageUi> = {
+export const defaultStageUi: Record<Stage, StageUi> = {
   new: {
     label: 'NEW',
     name: 'New',
@@ -50,17 +50,17 @@ export const stageUi: Record<Stage, StageUi> = {
     color: '#fbbf24',
     softColor: '#78350f',
     emptyTitle: 'Nothing active.',
-    emptyHint: 'Use < > to move cards.',
+    emptyHint: 'Move a task here to launch its terminal.',
   },
-  inprogress: {
-    label: 'IN PROGRESS',
-    name: 'In Progress',
-    shortLabel: 'PROGRESS',
+  paused: {
+    label: 'PAUSED',
+    name: 'Paused',
+    shortLabel: 'PAUSED',
     glyph: '◑',
     color: '#c084fc',
     softColor: '#4c1d95',
-    emptyTitle: 'Nothing in progress.',
-    emptyHint: 'Use < > to move cards.',
+    emptyTitle: 'Nothing paused.',
+    emptyHint: 'Park active work here without losing it.',
   },
   completed: {
     label: 'COMPLETED',
@@ -73,6 +73,34 @@ export const stageUi: Record<Stage, StageUi> = {
     emptyHint: 'Press Space to complete.',
   },
 };
+
+/**
+ * Mutable UI metadata so a config file can rename/recolor columns. Components
+ * read this at render time; apply overrides before rendering the app.
+ */
+export const stageUi: Record<Stage, StageUi> = structuredClone(defaultStageUi);
+
+export type StageUiOverrides = Partial<
+  Record<Stage, Partial<Pick<StageUi, 'label' | 'shortLabel' | 'glyph' | 'color'>>>
+>;
+
+const overridableKeys = ['label', 'shortLabel', 'glyph', 'color'] as const;
+
+export function applyStageOverrides(overrides: StageUiOverrides): void {
+  for (const stage of STAGE_IDS) {
+    const override = overrides[stage];
+    if (!override) {
+      continue;
+    }
+
+    for (const key of overridableKeys) {
+      const value = override[key];
+      if (typeof value === 'string' && value.trim().length > 0) {
+        stageUi[stage][key] = value.trim();
+      }
+    }
+  }
+}
 
 export const tagColors = [
   '#f472b6',

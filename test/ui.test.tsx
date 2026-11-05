@@ -4,6 +4,11 @@ import { render } from 'ink-testing-library';
 import React from 'react';
 import { App } from '../src/App';
 import { addTask, createEmptyBoard, type Board } from '../src/board';
+import type {
+  SpawnTask,
+  TerminalControl,
+  TerminalSession,
+} from '../src/terminal';
 
 const VIEWPORT = { columns: 120, rows: 32 };
 
@@ -53,12 +58,14 @@ function mount(
   board: Board,
   saveBoard?: (next: Board) => void,
   viewport = VIEWPORT,
+  terminal?: TerminalControl,
 ): ReturnType<typeof render> {
   const app = render(
     <App
       initialBoard={board}
       saveBoard={saveBoard}
       viewport={viewport}
+      terminal={terminal}
       initialNotice={{ text: 'Test board', tone: 'info' }}
     />,
   );
@@ -79,7 +86,7 @@ test('renders the kanban board with tasks, tags, and key hints', async (t) => {
   assert.match(output, /QANBAN/);
   assert.match(output, /◇ NEW/);
   assert.match(output, /◐ ACTIVE/);
-  assert.match(output, /◑ IN PROGRESS/);
+  assert.match(output, /◑ PAUSED/);
   assert.match(output, /✓ COMPLETED/);
   assert.match(output, /Alpha task/);
   assert.match(output, /#work/);
@@ -192,7 +199,7 @@ test('navigates tasks and advances stages with Space', async (t) => {
   assert.match(frame(app), /Moved “Beta task” to Active\./);
 
   await press(app, ' ');
-  assert.match(frame(app), /Moved “Beta task” to In Progress\./);
+  assert.match(frame(app), /Moved “Beta task” to Paused\./);
 });
 
 test('returns to the New column after adding a task from another column', async (t) => {
@@ -217,7 +224,7 @@ test('works at the minimum supported compact size and cancels with Escape', asyn
 
   await delay(80);
   const initial = frame(app);
-  assert.match(initial, /PROGRESS/);
+  assert.match(initial, /PAUSED/);
   assert.match(initial, /Alpha task/);
 
   await press(app, 'a');
@@ -229,4 +236,203 @@ test('works at the minimum supported compact size and cancels with Escape', asyn
   const closed = frame(app);
   assert.doesNotMatch(closed, /NEW TASK/);
   assert.match(closed, /Alpha task/);
+});
+
+interface FakeTerminalOptions {
+  pauseBehavior?: 'keep' | 'close';
+  focusOnEnter?: boolean;
+  spawnError?: string;
+  focusError?: string;
+  closeError?: string;
+}
+
+function fakeTerminal(options: FakeTerminalOptions = {}): {
+  controller: TerminalControl;
+  calls: string[];
+} {
+  const calls: string[] = [];
+  const controller: TerminalControl = {
+    provider: 'wezterm',
+    pauseBehavior: options.pauseBehavior ?? 'keep',
+    focusOnEnter: options.focusOnEnter ?? true,
+    spawn(task: SpawnTask) {
+      calls.push(`spawn:${task.id}`);
+      if (options.spawnError) {
+        return { ok: false, error: options.spawnError };
+      }
+      return {
+        ok: true,
+        session: {
+          provider: 'wezterm',
+          id: 'pane-1',
+          title: `Qanban · ${task.title}`,
+          createdAt: '2026-01-01T00:00:00.000Z',
+        },
+      };
+    },
+    focus(session: TerminalSession) {
+      calls.push(`focus:${session.id}`);
+      return options.focusError
+        ? { ok: false, error: options.focusError }
+        : { ok: true };
+    },
+    close(session: TerminalSession) {
+      calls.push(`close:${session.id}`);
+      return options.closeError
+        ? { ok: false, error: options.closeError }
+        : { ok: true };
+    },
+  };
+
+  return { controller, calls };
+}
+
+function boardWithActiveTask(session = false): Board {
+  const board = boardWithTasks();
+  const task = board.columns.new[0]!;
+  return {
+    ...board,
+    columns: {
+      ...board.columns,
+      new: board.columns.new.slice(1),
+      active: [
+        session
+          ? {
+              ...task,
+              session: {
+                provider: 'wezterm',
+                id: 'pane-1',
+                title: `Qanban · ${task.title}`,
+                createdAt: '2026-01-01T00:00:00.000Z',
+              },
+            }
+          : task,
+      ],
+    },
+  };
+}
+
+test('launches a terminal on Active and focuses it with Enter', async (t) => {
+  const saves: Board[] = [];
+  const fake = fakeTerminal();
+  const app = mount(
+    t,
+    boardWithTasks(),
+    (next) => saves.push(next),
+    VIEWPORT,
+    fake.controller,
+  );
+
+  await press(app, '>');
+  await delay(100);
+
+  const output = frame(app);
+  assert.match(output, /Launched wezterm for “Alpha task”\./);
+  assert.match(output, /● live/);
+  assert.deepEqual(fake.calls, ['spawn:alpha']);
+
+  const activeTask = saves
+    .at(-1)
+    ?.columns.active.find((task) => task.id === 'alpha');
+  assert.equal(activeTask?.session?.id, 'pane-1');
+
+  await press(app, '\r');
+  assert.match(frame(app), /Focused wezterm for “Alpha task”\./);
+  assert.deepEqual(fake.calls, ['spawn:alpha', 'focus:pane-1']);
+  assert.doesNotMatch(frame(app), /EDIT TASK/);
+});
+
+test('keeps the terminal open when a task is paused', async (t) => {
+  const fake = fakeTerminal({ pauseBehavior: 'keep' });
+  const app = mount(
+    t,
+    boardWithActiveTask(true),
+    undefined,
+    VIEWPORT,
+    fake.controller,
+  );
+
+  await press(app, '2');
+  await press(app, '>');
+
+  assert.match(
+    frame(app),
+    /Moved “Alpha task” to Paused\. Terminal kept open\./,
+  );
+  assert.deepEqual(fake.calls, []);
+  assert.match(frame(app), /● live/);
+});
+
+test('closes the terminal on pause when configured to close', async (t) => {
+  const saves: Board[] = [];
+  const fake = fakeTerminal({ pauseBehavior: 'close' });
+  const app = mount(
+    t,
+    boardWithActiveTask(true),
+    (next) => saves.push(next),
+    VIEWPORT,
+    fake.controller,
+  );
+
+  await press(app, '2');
+  await press(app, '>');
+  await delay(100);
+
+  assert.match(frame(app), /Moved “Alpha task” to Paused\. Terminal closed\./);
+  assert.deepEqual(fake.calls, ['close:pane-1']);
+  const pausedTask = saves
+    .at(-1)
+    ?.columns.paused.find((task) => task.id === 'alpha');
+  assert.equal(pausedTask?.session, undefined);
+});
+
+test('closes the terminal when a task is completed', async (t) => {
+  const saves: Board[] = [];
+  const fake = fakeTerminal({ pauseBehavior: 'keep' });
+  const app = mount(
+    t,
+    boardWithActiveTask(true),
+    (next) => saves.push(next),
+    VIEWPORT,
+    fake.controller,
+  );
+
+  await press(app, '2');
+  await press(app, '>');
+  await press(app, '>');
+  await delay(100);
+
+  assert.match(
+    frame(app),
+    /Completed “Alpha task”\. Terminal closed\./,
+  );
+  assert.deepEqual(fake.calls, ['close:pane-1']);
+  const completedTask = saves
+    .at(-1)
+    ?.columns.completed.find((task) => task.id === 'alpha');
+  assert.equal(completedTask?.session, undefined);
+});
+
+test('shows a warning when the terminal cannot be launched', async (t) => {
+  const fake = fakeTerminal({ spawnError: 'wezterm is not installed' });
+  const app = mount(
+    t,
+    boardWithTasks(),
+    undefined,
+    VIEWPORT,
+    fake.controller,
+  );
+
+  await press(app, '>');
+  assert.match(
+    frame(app),
+    /Could not launch a terminal: wezterm is not installed\./,
+  );
+});
+
+test('Enter edits an active task that has no session', async (t) => {
+  const app = mount(t, boardWithActiveTask(false));
+  await press(app, '2');
+  await press(app, '\r');
+  assert.match(frame(app), /EDIT TASK/);
 });

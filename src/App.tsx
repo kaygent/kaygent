@@ -9,6 +9,7 @@ import {
   moveTask,
   removeTask,
   reorderTask,
+  setTaskSession,
   STAGE_IDS,
   updateTask,
   type Board,
@@ -26,6 +27,7 @@ import { useTerminalSize, type Viewport } from './hooks/use-terminal-size';
 import { getKeyHints } from './key-hints';
 import { computeLayout, MIN_COLUMNS, MIN_ROWS } from './layout';
 import type { Notice, SaveState } from './notice';
+import type { TerminalControl } from './terminal';
 import { palette, stageUi } from './theme';
 
 type FieldName = 'title' | 'tags';
@@ -47,10 +49,12 @@ interface AppProps {
   initialNotice?: Notice;
   /** Used by tests and static renderers to provide a deterministic viewport. */
   viewport?: Viewport;
+  /** Terminal launcher/focuser. Omitted in demo mode and unit tests. */
+  terminal?: TerminalControl;
 }
 
 function emptyCursors(): Record<Stage, number> {
-  return { new: 0, active: 0, inprogress: 0, completed: 0 };
+  return { new: 0, active: 0, paused: 0, completed: 0 };
 }
 
 interface PlayState {
@@ -72,6 +76,7 @@ export function App({
   saveBoard,
   initialNotice,
   viewport: viewportOverride,
+  terminal,
 }: AppProps) {
   const viewport = useTerminalSize(viewportOverride);
   const layout = computeLayout(viewport.columns, viewport.rows);
@@ -105,6 +110,8 @@ export function App({
   const initialRender = useRef(true);
   const saveHandler = useRef(saveBoard);
   saveHandler.current = saveBoard;
+  const terminalControl = useRef(terminal);
+  terminalControl.current = terminal;
 
   useEffect(() => {
     if (initialRender.current) {
@@ -226,6 +233,39 @@ export function App({
     setModal({ kind: 'delete', stage, task });
   };
 
+  const focusSelectedTerminal = (): boolean => {
+    const terminal = terminalControl.current;
+    if (!terminal || !terminal.focusOnEnter) {
+      return false;
+    }
+
+    const currentState = playRef.current;
+    if (currentState.focusedStage !== 'active') {
+      return false;
+    }
+
+    const index = selectedIndexFor(currentState, 'active');
+    const task = currentState.board.columns.active[index];
+    if (!task?.session) {
+      return false;
+    }
+
+    const result = terminal.focus(task.session);
+    if (result.ok) {
+      setNotice({
+        text: `Focused ${task.session.provider} for “${task.title}”.`,
+        tone: 'success',
+      });
+    } else {
+      setNotice({
+        text: `Could not focus the terminal: ${result.error ?? 'unknown error'}. Press e to edit this task.`,
+        tone: 'warning',
+      });
+    }
+
+    return true;
+  };
+
   const moveSelectedTo = (direction: -1 | 1) => {
     const currentState = playRef.current;
     const stage = currentState.focusedStage;
@@ -260,8 +300,69 @@ export function App({
       return;
     }
 
+    const terminal = terminalControl.current;
+    let nextBoard = result.board;
+    let terminalText = '';
+    let tone: Notice['tone'] = 'success';
+
+    if (terminal) {
+      if (targetStage === 'active') {
+        if (task.session) {
+          const focused = terminal.focus(task.session);
+          if (focused.ok) {
+            terminalText = `Focused ${task.session.provider} for “${task.title}”.`;
+          } else {
+            terminalText = `Could not focus the terminal: ${focused.error ?? 'unknown error'}.`;
+            tone = 'warning';
+          }
+        } else {
+          const spawned = terminal.spawn(task);
+          if (spawned.ok && spawned.session) {
+            nextBoard = setTaskSession(
+              nextBoard,
+              targetStage,
+              task.id,
+              spawned.session,
+            );
+            terminalText = `Launched ${terminal.provider} for “${task.title}”.`;
+          } else {
+            terminalText = `Could not launch a terminal: ${spawned.error ?? 'unknown error'}.`;
+            tone = 'warning';
+          }
+        }
+      } else if (task.session) {
+        const closeOnPause =
+          targetStage === 'paused' && terminal.pauseBehavior === 'close';
+        const closeOnFinish =
+          targetStage === 'completed' || targetStage === 'new';
+
+        if (closeOnPause || closeOnFinish) {
+          const closed = terminal.close(task.session);
+          if (closed.ok) {
+            nextBoard = setTaskSession(
+              nextBoard,
+              targetStage,
+              task.id,
+              undefined,
+            );
+            terminalText = 'Terminal closed.';
+          } else {
+            terminalText = `Could not close the terminal: ${closed.error ?? 'unknown error'}.`;
+            tone = 'warning';
+          }
+        } else if (targetStage === 'paused') {
+          terminalText = 'Terminal kept open.';
+        }
+      }
+    }
+
+    const baseText =
+      targetStage === 'completed'
+        ? `Completed “${task.title}”.`
+        : `Moved “${task.title}” to ${stageUi[targetStage].name}.`;
+
     commitPlay({
-      board: result.board,
+      board: nextBoard,
       focusedStage: targetStage,
       cursors: {
         ...currentState.cursors,
@@ -273,11 +374,8 @@ export function App({
       },
     });
     setNotice({
-      text:
-        targetStage === 'completed'
-          ? `Completed “${task.title}”.`
-          : `Moved “${task.title}” to ${stageUi[targetStage].name}.`,
-      tone: 'success',
+      text: [baseText, terminalText].filter(Boolean).join(' '),
+      tone,
     });
   };
 
@@ -372,6 +470,19 @@ export function App({
       return;
     }
 
+    const terminal = terminalControl.current;
+    let terminalText = '';
+    let tone: Notice['tone'] = 'success';
+    if (terminal && target.task.session) {
+      const closed = terminal.close(target.task.session);
+      if (closed.ok) {
+        terminalText = ' Terminal closed.';
+      } else {
+        terminalText = ` Could not close the terminal: ${closed.error ?? 'unknown error'}.`;
+        tone = 'warning';
+      }
+    }
+
     const nextBoard = removeTask(currentState.board, target.stage, currentIndex);
     const remaining = nextBoard.columns[target.stage].length;
     commitPlay({
@@ -387,7 +498,10 @@ export function App({
       },
     });
     setModal(null);
-    setNotice({ text: `Deleted “${target.task.title}”.`, tone: 'success' });
+    setNotice({
+      text: `Deleted “${target.task.title}”.${terminalText}`,
+      tone,
+    });
   };
 
   useInput(
@@ -457,6 +571,9 @@ export function App({
       }
 
       if (key.return) {
+        if (focusSelectedTerminal()) {
+          return;
+        }
         openEdit('title');
         return;
       }

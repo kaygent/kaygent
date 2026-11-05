@@ -89,6 +89,7 @@ export function BoardColumn({
                   stageColor={ui.color}
                   highlighted={focused && window.start + index === selectedIndex}
                   completed={stage === 'completed'}
+                  hasSession={Boolean(task.session)}
                   marginBottom={index === visibleTasks.length - 1 ? 0 : 1}
                 />
               ))}

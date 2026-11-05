@@ -18,6 +18,7 @@ import {
   type Stage,
   type Task,
 } from './board';
+import type { TerminalSession } from './terminal/types';
 
 const BOARD_FILE_NAME = 'board.json';
 
@@ -27,7 +28,7 @@ export interface LoadedBoard {
   warning?: string;
 }
 
-function defaultDataDirectory(): string {
+export function defaultDataDirectory(): string {
   if (process.env.QANBAN_DATA_DIR) {
     return resolve(process.env.QANBAN_DATA_DIR);
   }
@@ -65,6 +66,36 @@ function nonEmptyString(value: unknown): value is string {
   return typeof value === 'string' && value.trim().length > 0;
 }
 
+function normalizeSession(value: unknown): TerminalSession | undefined {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return undefined;
+  }
+
+  const candidate = value as Record<string, unknown>;
+  if (
+    !nonEmptyString(candidate.provider) ||
+    !nonEmptyString(candidate.id) ||
+    !nonEmptyString(candidate.createdAt) ||
+    Number.isNaN(Date.parse(candidate.createdAt))
+  ) {
+    return undefined;
+  }
+
+  const session: TerminalSession = {
+    provider: candidate.provider.trim(),
+    id: candidate.id.trim(),
+    createdAt: new Date(candidate.createdAt).toISOString(),
+  };
+
+  for (const key of ['title', 'tabId', 'paneId', 'pidFile', 'windowName'] as const) {
+    if (nonEmptyString(candidate[key])) {
+      session[key] = (candidate[key] as string).trim();
+    }
+  }
+
+  return session;
+}
+
 function normalizeTask(
   value: unknown,
   now: string,
@@ -90,13 +121,20 @@ function normalizeTask(
       ? (candidate.tags as string | string[])
       : [];
 
-  return {
+  const task: Task = {
     id,
     title: candidate.title.replace(/\s+/g, ' ').trim(),
     tags: parseTags(rawTags),
     createdAt: validTimestamp(candidate.createdAt, now),
     updatedAt: validTimestamp(candidate.updatedAt, now),
   };
+
+  const session = normalizeSession(candidate.session);
+  if (session) {
+    task.session = session;
+  }
+
+  return task;
 }
 
 interface NormalizedBoard {
@@ -126,15 +164,20 @@ function normalizeBoard(value: unknown): NormalizedBoard {
   let skipped = 0;
 
   for (const stage of STAGE_IDS) {
-    const list = rawColumns[stage];
-    if (!Array.isArray(list)) {
-      if (list !== undefined) {
+    // Boards written before the "paused" rename used "inprogress".
+    const source =
+      stage === 'paused' && rawColumns.paused === undefined
+        ? rawColumns.inprogress
+        : rawColumns[stage];
+
+    if (!Array.isArray(source)) {
+      if (source !== undefined) {
         skipped += 1;
       }
       continue;
     }
 
-    for (const item of list) {
+    for (const item of source) {
       const task = normalizeTask(item, now, usedIds);
       if (task) {
         board.columns[stage as Stage].push(task);
@@ -147,8 +190,7 @@ function normalizeBoard(value: unknown): NormalizedBoard {
   return {
     board,
     skipped,
-    futureVersion:
-      typeof raw.version === 'number' && raw.version > 1,
+    futureVersion: typeof raw.version === 'number' && raw.version > 2,
   };
 }
 
@@ -230,11 +272,27 @@ export function serializeBoard(board: Board): string {
         tags: task.tags,
         createdAt: task.createdAt,
         updatedAt: task.updatedAt,
+        ...(task.session
+          ? {
+              session: {
+                provider: task.session.provider,
+                id: task.session.id,
+                ...(task.session.title ? { title: task.session.title } : {}),
+                ...(task.session.tabId ? { tabId: task.session.tabId } : {}),
+                ...(task.session.paneId ? { paneId: task.session.paneId } : {}),
+                ...(task.session.pidFile ? { pidFile: task.session.pidFile } : {}),
+                ...(task.session.windowName
+                  ? { windowName: task.session.windowName }
+                  : {}),
+                createdAt: task.session.createdAt,
+              },
+            }
+          : {}),
       })),
     ]),
   );
 
-  return `${JSON.stringify({ version: 1, columns }, null, 2)}\n`;
+  return `${JSON.stringify({ version: 2, columns }, null, 2)}\n`;
 }
 
 export function saveBoard(board: Board, filePath = defaultDataFile()): void {

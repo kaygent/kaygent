@@ -1,9 +1,12 @@
 import { render } from 'ink';
 import { basename } from 'node:path';
 import { App } from './App';
+import { defaultConfigFile, loadConfig } from './config';
 import { createDemoBoard } from './demo';
 import { defaultDataFile, loadBoard, saveBoard } from './store';
 import { runSelfTest } from './selftest';
+import { createTerminalController } from './terminal';
+import { applyStageOverrides } from './theme';
 import { APP_NAME, VERSION } from './version';
 
 interface Options {
@@ -76,7 +79,8 @@ function helpText(): string {
     '  ←/→, Tab       switch columns (1–4 jump directly)',
     '  ↑/↓            select a task (Page Up/Down jumps five)',
     '  a              add a task to New',
-    '  e / Enter      edit the selected task (title and tags)',
+    '  e              edit the selected task (title and tags)',
+    '  Enter          focus the terminal for an active task, otherwise edit',
     '  t              edit tags on the selected task',
     '  d / Delete     delete the selected task',
     '  < / > / Space  move a task between columns',
@@ -88,9 +92,13 @@ function helpText(): string {
     '  Tasks are saved automatically to:',
     `  ${defaultDataFile()}`,
     '',
-    '  Set QANBAN_DATA_FILE to use a specific file, or QANBAN_DATA_DIR',
-    '  to use a specific directory. Set QANBAN_NO_ALT=1 to disable the',
-    '  fullscreen terminal buffer.',
+    'CONFIG',
+    '  Columns and terminal integration are configured in:',
+    `  ${defaultConfigFile()}`,
+    '',
+    '  Set QANBAN_DATA_FILE to use a specific board file, or',
+    '  QANBAN_CONFIG_FILE for a specific config file. Set',
+    '  QANBAN_NO_ALT=1 to disable the fullscreen terminal buffer.',
     '',
   ].join('\n');
 }
@@ -134,6 +142,12 @@ async function main(): Promise<void> {
     return;
   }
 
+  const loadedConfig = loadConfig();
+  applyStageOverrides(loadedConfig.config.columns);
+  const terminal = options.demo
+    ? undefined
+    : createTerminalController(loadedConfig.config.terminal);
+
   const useAltScreen =
     !options.noAlt &&
     process.env.QANBAN_NO_ALT !== '1' &&
@@ -171,12 +185,16 @@ async function main(): Promise<void> {
       const loaded = loadBoard();
       initialBoard = loaded.board;
       saver = (board) => saveBoard(board, loaded.filePath);
-      initialNotice = loaded.warning
-        ? {
-            text: loaded.warning,
-            tone: 'warning' as const,
-          }
-        : undefined;
+      const warnings = [loadedConfig.warning, loaded.warning].filter(
+        (value): value is string => Boolean(value),
+      );
+      initialNotice =
+        warnings.length > 0
+          ? {
+              text: warnings.join(' '),
+              tone: 'warning' as const,
+            }
+          : undefined;
     }
 
     const instance = render(
@@ -184,6 +202,7 @@ async function main(): Promise<void> {
         initialBoard={initialBoard}
         saveBoard={saver}
         initialNotice={initialNotice}
+        terminal={terminal}
       />,
       {
         exitOnCtrlC: true,

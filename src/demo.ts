@@ -66,7 +66,7 @@ export function createDemoBoard(now = new Date()): Board {
     now,
   );
 
-  board.columns.inprogress = demoTasks(
+  board.columns.paused = demoTasks(
     [
       {
         id: 'demo-progress-1',

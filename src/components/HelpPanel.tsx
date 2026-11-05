@@ -1,5 +1,5 @@
 import { Box, Text, useInput } from 'ink';
-import { palette, stageUi } from '../theme';
+import { palette } from '../theme';
 import { Panel, panelInnerWidth } from './Panel';
 
 interface HelpPanelProps {
@@ -16,7 +16,7 @@ interface ShortcutSection {
 const sections: ShortcutSection[] = [
   {
     title: 'NAVIGATE',
-    color: stageUi.new.color,
+    color: palette.accent,
     shortcuts: [
       ['←→', 'columns'],
       ['↑↓', 'select task'],
@@ -29,14 +29,14 @@ const sections: ShortcutSection[] = [
     color: palette.brand,
     shortcuts: [
       ['a', 'add task'],
-      ['e/↵', 'edit task'],
+      ['e', 'edit task'],
       ['t', 'edit tags'],
       ['d', 'delete task'],
     ],
   },
   {
     title: 'MOVE',
-    color: stageUi.active.color,
+    color: palette.warning,
     shortcuts: [
       ['<>', 'change stage'],
       ['Spc', 'advance stage'],
@@ -89,6 +89,14 @@ export function HelpPanel({ panelWidth, onClose }: HelpPanelProps) {
             ))}
           </Box>
         ))}
+      </Box>
+
+      <Box height={1} />
+
+      <Box height={1} width={innerWidth}>
+        <Text color={palette.muted} wrap="truncate-end">
+          ↵ on an Active task focuses its terminal  ·  moving to Active launches it
+        </Text>
       </Box>
 
       <Box height={1} />

@@ -32,11 +32,11 @@ export function runSelfTest(): { lines: string[] } {
       loaded.board,
       'new',
       0,
-      'inprogress',
+      'paused',
       undefined,
       { now: new Date('2026-01-01T12:00:00.000Z') },
     );
-    if (!moved.moved || moved.board.columns.inprogress.length === 0) {
+    if (!moved.moved || moved.board.columns.paused.length === 0) {
       throw new Error('Task move check failed.');
     }
 
@@ -58,7 +58,7 @@ export function runSelfTest(): { lines: string[] } {
       'QANBAN',
       'NEW',
       'ACTIVE',
-      'IN PROGRESS',
+      'PAUSED',
       'COMPLETED',
       'Refine shortcuts',
       '#design',

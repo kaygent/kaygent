@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
+import type { TerminalSession } from './terminal/types';
 
-export const STAGE_IDS = ['new', 'active', 'inprogress', 'completed'] as const;
+export const STAGE_IDS = ['new', 'active', 'paused', 'completed'] as const;
 export type Stage = (typeof STAGE_IDS)[number];
 
 export interface Task {
@@ -9,12 +10,14 @@ export interface Task {
   tags: string[];
   createdAt: string;
   updatedAt: string;
+  /** Terminal session spawned when this task entered Active. */
+  session?: TerminalSession;
 }
 
 export type TaskColumns = Record<Stage, Task[]>;
 
 export interface Board {
-  version: 1;
+  version: 2;
   columns: TaskColumns;
 }
 
@@ -50,14 +53,14 @@ export function createEmptyColumns(): TaskColumns {
   return {
     new: [],
     active: [],
-    inprogress: [],
+    paused: [],
     completed: [],
   };
 }
 
 export function createEmptyBoard(): Board {
   return {
-    version: 1,
+    version: 2,
     columns: createEmptyColumns(),
   };
 }
@@ -119,8 +122,43 @@ export function countOpenTasks(board: Board): number {
   return (
     board.columns.new.length +
     board.columns.active.length +
-    board.columns.inprogress.length
+    board.columns.paused.length
   );
+}
+
+/**
+ * Attach or clear the terminal session on a task without disturbing its
+ * position or any other field. Passing `undefined` removes the property.
+ */
+export function setTaskSession(
+  board: Board,
+  stage: Stage,
+  taskId: string,
+  session: TerminalSession | undefined,
+): Board {
+  const index = board.columns[stage].findIndex((task) => task.id === taskId);
+  if (index === -1) {
+    return board;
+  }
+
+  const tasks = [...board.columns[stage]];
+  const task = tasks[index]!;
+
+  if (session) {
+    tasks[index] = { ...task, session };
+  } else {
+    const rest = { ...task };
+    delete rest.session;
+    tasks[index] = rest;
+  }
+
+  return {
+    ...board,
+    columns: {
+      ...board.columns,
+      [stage]: tasks,
+    },
+  };
 }
 
 export function clamp(value: number, min: number, max: number): number {
