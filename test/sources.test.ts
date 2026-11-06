@@ -317,7 +317,7 @@ function fakeForegroundTerminal(behavior: {
   const session: TerminalSession = {
     provider: 'fake',
     id: 'session-1',
-    title: 'Qanban sync · github',
+    title: 'Kaygent sync · github',
     createdAt: NOW.toISOString(),
   };
 
@@ -352,7 +352,7 @@ function fakeForegroundTerminal(behavior: {
 }
 
 test('runs foreground sources in a terminal and closes it', (t) => {
-  const directory = mkdtempSync(join(tmpdir(), 'qanban-fg-test-'));
+  const directory = mkdtempSync(join(tmpdir(), 'kaygent-fg-test-'));
   t.after(() => rmSync(directory, { recursive: true, force: true }));
   const fake = fakeForegroundTerminal({
     write: (dir) => {
@@ -382,12 +382,12 @@ test('runs foreground sources in a terminal and closes it', (t) => {
   assert.ok(fake.calls.includes('focus:session-1'));
   assert.ok(fake.calls.includes('close:session-1'));
   assert.ok(
-    fake.calls.some((call) => call === 'title:Qanban sync · github'),
+    fake.calls.some((call) => call === 'title:Kaygent sync · github'),
   );
 });
 
 test('closes the foreground terminal when the source times out', (t) => {
-  const directory = mkdtempSync(join(tmpdir(), 'qanban-fg-timeout-'));
+  const directory = mkdtempSync(join(tmpdir(), 'kaygent-fg-timeout-'));
   t.after(() => rmSync(directory, { recursive: true, force: true }));
   const fake = fakeForegroundTerminal();
 
@@ -408,7 +408,7 @@ test('closes the foreground terminal when the source times out', (t) => {
 });
 
 test('reports foreground terminal launch failures', (t) => {
-  const directory = mkdtempSync(join(tmpdir(), 'qanban-fg-fail-'));
+  const directory = mkdtempSync(join(tmpdir(), 'kaygent-fg-fail-'));
   t.after(() => rmSync(directory, { recursive: true, force: true }));
   const fake = fakeForegroundTerminal({ spawnOk: false });
 

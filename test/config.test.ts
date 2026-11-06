@@ -13,7 +13,7 @@ import {
 import { applyStageOverrides, stageUi } from '../src/theme';
 
 function tempDirectory(t: test.TestContext): string {
-  const directory = mkdtempSync(join(tmpdir(), 'qanban-config-'));
+  const directory = mkdtempSync(join(tmpdir(), 'kaygent-config-'));
   t.after(() => rmSync(directory, { recursive: true, force: true }));
   return directory;
 }

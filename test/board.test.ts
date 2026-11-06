@@ -85,7 +85,7 @@ test('attaches and clears terminal sessions without losing task data', () => {
   const session = {
     provider: 'wezterm',
     id: '3',
-    title: 'Qanban · Agent task',
+    title: 'Kaygent · Agent task',
     createdAt: NOW.toISOString(),
   };
 

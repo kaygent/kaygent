@@ -7,12 +7,12 @@ import { fileURLToPath } from 'node:url';
 const require = createRequire(import.meta.url);
 const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const entry = resolve(projectRoot, 'dist', 'cli.mjs');
-const output = resolve(projectRoot, 'release', 'Qanban.exe');
+const output = resolve(projectRoot, 'release', 'Kaygent.exe');
 const pkgScript = require.resolve('@yao-pkg/pkg/lib-es5/bin.js');
 
 await mkdir(dirname(output), { recursive: true });
 
-console.log('Packaging Qanban.exe with @yao-pkg/pkg (Node 24, Windows x64)...\n');
+console.log('Packaging Kaygent.exe with @yao-pkg/pkg (Node 24, Windows x64)...\n');
 
 const args = [
   pkgScript,

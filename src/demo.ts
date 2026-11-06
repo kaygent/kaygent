@@ -94,7 +94,7 @@ export function createDemoBoard(now = new Date()): Board {
       },
       {
         id: 'demo-done-2',
-        title: 'Set up Qanban',
+        title: 'Set up Kaygent',
         tags: ['setup'],
         minutesAgo: 3_100,
       },

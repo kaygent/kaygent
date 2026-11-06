@@ -27,7 +27,7 @@ export function Header({ columns, openCount, doneCount, totalCount }: HeaderProp
       backgroundColor={palette.background}
     >
       <Text bold color={palette.brand}>
-        ◈ QANBAN
+        ◈ KAYGENT
       </Text>
       {columns >= 86 ? (
         <Text color={palette.dim}>  /  terminal kanban</Text>

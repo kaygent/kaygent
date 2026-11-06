@@ -789,7 +789,7 @@ export function App({
         backgroundColor={palette.background}
       >
         <Text bold color={palette.brand}>
-          ◈ QANBAN
+          ◈ KAYGENT
         </Text>
         <Text color={palette.warning}>Terminal window is too small.</Text>
         <Text color={palette.muted}>

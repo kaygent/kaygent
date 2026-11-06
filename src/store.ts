@@ -30,26 +30,26 @@ export interface LoadedBoard {
 }
 
 export function defaultDataDirectory(): string {
-  if (process.env.QANBAN_DATA_DIR) {
-    return resolve(process.env.QANBAN_DATA_DIR);
+  if (process.env.KAYGENT_DATA_DIR) {
+    return resolve(process.env.KAYGENT_DATA_DIR);
   }
 
   if (process.platform === 'win32') {
     const appData = process.env.APPDATA || join(homedir(), 'AppData', 'Roaming');
-    return join(appData, 'Qanban');
+    return join(appData, 'Kaygent');
   }
 
   if (process.platform === 'darwin') {
-    return join(homedir(), 'Library', 'Application Support', 'Qanban');
+    return join(homedir(), 'Library', 'Application Support', 'Kaygent');
   }
 
   const configHome = process.env.XDG_CONFIG_HOME || join(homedir(), '.config');
-  return join(configHome, 'qanban');
+  return join(configHome, 'kaygent');
 }
 
 export function defaultDataFile(): string {
-  if (process.env.QANBAN_DATA_FILE) {
-    return resolve(process.env.QANBAN_DATA_FILE);
+  if (process.env.KAYGENT_DATA_FILE) {
+    return resolve(process.env.KAYGENT_DATA_FILE);
   }
 
   return join(defaultDataDirectory(), BOARD_FILE_NAME);
@@ -263,7 +263,7 @@ export function loadBoard(filePath = defaultDataFile()): LoadedBoard {
 
     if (normalized.futureVersion) {
       warnings.push(
-        'This board was written by a newer version of Qanban. Unsupported fields were ignored.',
+        'This board was written by a newer version of Kaygent. Unsupported fields were ignored.',
       );
     }
 

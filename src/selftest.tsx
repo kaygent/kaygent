@@ -12,7 +12,7 @@ function stripAnsi(value: string): string {
 }
 
 export function runSelfTest(): { lines: string[] } {
-  const directory = mkdtempSync(join(tmpdir(), 'qanban-selftest-'));
+  const directory = mkdtempSync(join(tmpdir(), 'kaygent-selftest-'));
   const filePath = join(directory, 'board.json');
   const demo = createDemoBoard(new Date('2026-01-01T12:00:00.000Z'));
 
@@ -55,7 +55,7 @@ export function runSelfTest(): { lines: string[] } {
     );
 
     for (const expected of [
-      'QANBAN',
+      'KAYGENT',
       'NEW',
       'ACTIVE',
       'PAUSED',
@@ -79,7 +79,7 @@ export function runSelfTest(): { lines: string[] } {
 
   return {
     lines: [
-      'Qanban self-test passed.',
+      'Kaygent self-test passed.',
       '  ✓ React terminal UI rendered',
       '  ✓ Board storage saved and reloaded',
       '  ✓ Task movement logic verified',

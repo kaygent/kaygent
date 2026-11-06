@@ -42,7 +42,7 @@
   Thought for 3s (ctrl+o to expand)
 
 ● Bash(npm test)
-  ⎿  > qanban@1.0.0 test
+  ⎿  > kaygent@1.0.0 test
      > tsx --test test/board.test.ts test/store.test.ts test/layout.test.ts
       test/ui.test.tsx
      … +38 lines (ctrl+o to expand)
@@ -54,16 +54,16 @@
       build)
   ⎿  up to date in 3s
 
-     > qanban@1.0.0 build
+     > kaygent@1.0.0 build
      … +65 lines (ctrl+o to expand)
 
   Thought for 3s (ctrl+o to expand)
 
-● Bash(./release/Qanban.exe --version && ./release/Qanban.exe --selftest &&
-      ./release/Qanban.exe --help | head -12 && ls -lh release && df -h /c |
+● Bash(./release/Kaygent.exe --version && ./release/Kaygent.exe --selftest &&
+      ./release/Kaygent.exe --help | head -12 && ls -lh release && df -h /c |
       tail -1)
-  ⎿  Qanban 1.0.0
-     Qanban self-test passed.
+  ⎿  Kaygent 1.0.0
+     Kaygent self-test passed.
        ✓ React terminal UI rendered
      … +18 lines (ctrl+o to expand)
 
@@ -146,36 +146,36 @@
   Thought for 5s (ctrl+o to expand)
 
 ● Bash(cat package.json; echo '---'; npm test 2>&1 | tail -8; echo '--- exe
-      ---'; ls -lh release/Qanban.exe release/README.md; sha256sum
-      release/Qanban.exe)
+      ---'; ls -lh release/Kaygent.exe release/README.md; sha256sum
+      release/Kaygent.exe)
   ⎿  {
-       "name": "qanban",
+       "name": "kaygent",
        "version": "1.0.0",
      … +52 lines (ctrl+o to expand)
 
   Thought for 10s (ctrl+o to expand)
 
-● Bash(./release/Qanban.exe --selftest && ./release/Qanban.exe --version)
-  ⎿  Qanban self-test passed.
+● Bash(./release/Kaygent.exe --selftest && ./release/Kaygent.exe --version)
+  ⎿  Kaygent self-test passed.
        ✓ React terminal UI rendered
        ✓ Board storage saved and reloaded
      … +2 lines (ctrl+o to expand)
 
   Thought for 20s (ctrl+o to expand)
 
-● Built Qanban, a React-powered terminal kanban todo manager.
+● Built Kaygent, a React-powered terminal kanban todo manager.
 
-  Executable: C:\lpf\tasks\adhoc\termapp\release\Qanban.exe
+  Executable: C:\lpf\tasks\adhoc\termapp\release\Kaygent.exe
 
-  .\release\Qanban.exe          # launch with your saved board
-  .\release\Qanban.exe --demo   # launch with sample tasks, no saving
+  .\release\Kaygent.exe          # launch with your saved board
+  .\release\Kaygent.exe --demo   # launch with sample tasks, no saving
 
   Features
 
   - Four kanban columns: New, Active, In Progress, Completed
   - Create, edit, tag, delete, reorder, and move tasks
   - Colored tags with automatic deduplication
-  - Autosave to %APPDATA%\Qanban\board.json
+  - Autosave to %APPDATA%\Kaygent\board.json
   - Fullscreen responsive UI with compact single-column mode on narrow terminals
   - In-app keyboard guide, edit forms, delete confirmation, and status feedback
   - Self-contained Windows x64 executable; Node.js is not required
@@ -199,31 +199,31 @@
 
 ✻ Baked for 48m 38s · done 4:45 PM
 
-※ recap: Built Qanban, a React terminal kanban todo app, and packaged it as release\Qanban.exe; all 31 tests and the executable self-test pass. Next, launch the exe with .\release\Qanban.exe (or .\release\Qanban.exe --demo). (disable recaps in /config)
+※ recap: Built Kaygent, a React terminal kanban todo app, and packaged it as release\Kaygent.exe; all 31 tests and the executable self-test pass. Next, launch the exe with .\release\Kaygent.exe (or .\release\Kaygent.exe --demo). (disable recaps in /config)
 
-! release\Qanban.exe                                                          
-  ⎿  /usr/bin/bash: line 1: releaseQanban.exe: command not found
+! release\Kaygent.exe                                                          
+  ⎿  /usr/bin/bash: line 1: releaseKaygent.exe: command not found
 
   Thought for 5s (ctrl+o to expand)
 
 ● The backslash was treated as an escape character by Bash. Use:
 
-  ./release/Qanban.exe
+  ./release/Kaygent.exe
 
   Or from PowerShell/cmd:
 
-  .\release\Qanban.exe
+  .\release\Kaygent.exe
 
   For a sample board without saving:
 
-  ./release/Qanban.exe --demo
+  ./release/Kaygent.exe --demo
 
 ✻ Cogitated for 5s · done 4:50 PM
 
-! ./release/Qanban.exe --demo                                                 
+! ./release/Kaygent.exe --demo                                                 
   ⎿  
-     Qanban needs an interactive terminal.
-     Open Windows Terminal (or PowerShell), run Qanban.exe there, and try 
+     Kaygent needs an interactive terminal.
+     Open Windows Terminal (or PowerShell), run Kaygent.exe there, and try 
      again.
      Use --help for options, or --selftest for a non-interactive check.
 
@@ -231,25 +231,25 @@
 
   Thought for 10s (ctrl+o to expand)
 
-● That shell captures stdin/stdout, so it has no interactive TTY. Qanban must
+● That shell captures stdin/stdout, so it has no interactive TTY. Kaygent must
   run in a real terminal window.
 
   Open Windows Terminal or PowerShell, then run:
 
   cd C:\lpf\tasks\adhoc\termapp
-  .\release\Qanban.exe --demo
+  .\release\Kaygent.exe --demo
 
   Or launch it in a new console from here:
 
   powershell.exe -NoProfile -Command "Start-Process 
-  'C:\lpf\tasks\adhoc\termapp\release\Qanban.exe' -ArgumentList '--demo'"
+  'C:\lpf\tasks\adhoc\termapp\release\Kaygent.exe' -ArgumentList '--demo'"
 
-  You can also double-click release\Qanban.exe in File Explorer for the normal
+  You can also double-click release\Kaygent.exe in File Explorer for the normal
   saved board.
 
 ✻ Worked for 12s · done 4:50 PM
 
-※ recap: Built and verified the React/Ink terminal kanban app and standalone Windows executable at release\Qanban.exe. Next, launch it from Windows Terminal or PowerShell, not this captured shell, with .\release\Qanban.exe --demo. (disable recaps in /config)
+※ recap: Built and verified the React/Ink terminal kanban app and standalone Windows executable at release\Kaygent.exe. Next, launch it from Windows Terminal or PowerShell, not this captured shell, with .\release\Kaygent.exe --demo. (disable recaps in /config)
 
 ❯ /exit                                                                         
   ⎿  Bye!

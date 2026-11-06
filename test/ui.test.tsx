@@ -91,7 +91,7 @@ test('renders the kanban board with tasks, tags, and key hints', async (t) => {
   await delay(80);
   const output = frame(app);
 
-  assert.match(output, /QANBAN/);
+  assert.match(output, /KAYGENT/);
   assert.match(output, /◇ NEW/);
   assert.match(output, /◐ ACTIVE/);
   assert.match(output, /◑ PAUSED/);
@@ -273,7 +273,7 @@ function fakeTerminal(options: FakeTerminalOptions = {}): {
         session: {
           provider: 'wezterm',
           id: 'pane-1',
-          title: `Qanban · ${task.title}`,
+          title: `Kaygent · ${task.title}`,
           createdAt: '2026-01-01T00:00:00.000Z',
         },
       };
@@ -313,7 +313,7 @@ function boardWithActiveTask(session = false): Board {
               session: {
                 provider: 'wezterm',
                 id: 'pane-1',
-                title: `Qanban · ${task.title}`,
+                title: `Kaygent · ${task.title}`,
                 createdAt: '2026-01-01T00:00:00.000Z',
               },
             }

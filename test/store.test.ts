@@ -13,7 +13,7 @@ import { addTask, countTasks, createEmptyBoard } from '../src/board';
 import { defaultDataFile, loadBoard, saveBoard, serializeBoard } from '../src/store';
 
 function tempDirectory(t: test.TestContext): string {
-  const directory = mkdtempSync(join(tmpdir(), 'qanban-test-'));
+  const directory = mkdtempSync(join(tmpdir(), 'kaygent-test-'));
   t.after(() => rmSync(directory, { recursive: true, force: true }));
   return directory;
 }
@@ -72,7 +72,7 @@ test('round-trips terminal sessions on tasks', (t) => {
       session: {
         provider: 'tmux',
         id: '@7',
-        title: 'Qanban · Hand this to an agent',
+        title: 'Kaygent · Hand this to an agent',
         createdAt: NOW.toISOString(),
       },
     },
@@ -84,7 +84,7 @@ test('round-trips terminal sessions on tasks', (t) => {
   assert.deepEqual(loaded.board.columns.active[0]?.session, {
     provider: 'tmux',
     id: '@7',
-    title: 'Qanban · Hand this to an agent',
+    title: 'Kaygent · Hand this to an agent',
     createdAt: NOW.toISOString(),
   });
 });
@@ -221,27 +221,27 @@ test('skips invalid task entries while preserving valid ones', (t) => {
 });
 
 test('uses env overrides for the default data path', () => {
-  const previousFile = process.env.QANBAN_DATA_FILE;
-  const previousDir = process.env.QANBAN_DATA_DIR;
+  const previousFile = process.env.KAYGENT_DATA_FILE;
+  const previousDir = process.env.KAYGENT_DATA_DIR;
 
   try {
-    process.env.QANBAN_DATA_FILE = 'C:\\temp\\custom-board.json';
+    process.env.KAYGENT_DATA_FILE = 'C:\\temp\\custom-board.json';
     assert.match(defaultDataFile(), /custom-board\.json$/);
 
-    delete process.env.QANBAN_DATA_FILE;
-    process.env.QANBAN_DATA_DIR = 'C:\\temp\\qanban-data';
-    assert.match(defaultDataFile(), /qanban-data[\\/]board\.json$/);
+    delete process.env.KAYGENT_DATA_FILE;
+    process.env.KAYGENT_DATA_DIR = 'C:\\temp\\kaygent-data';
+    assert.match(defaultDataFile(), /kaygent-data[\\/]board\.json$/);
   } finally {
     if (previousFile === undefined) {
-      delete process.env.QANBAN_DATA_FILE;
+      delete process.env.KAYGENT_DATA_FILE;
     } else {
-      process.env.QANBAN_DATA_FILE = previousFile;
+      process.env.KAYGENT_DATA_FILE = previousFile;
     }
 
     if (previousDir === undefined) {
-      delete process.env.QANBAN_DATA_DIR;
+      delete process.env.KAYGENT_DATA_DIR;
     } else {
-      process.env.QANBAN_DATA_DIR = previousDir;
+      process.env.KAYGENT_DATA_DIR = previousDir;
     }
   }
 });

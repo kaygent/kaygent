@@ -199,7 +199,7 @@ function spawnWezterm(context: SpawnContext): TerminalResult {
     return { ok: false, error: 'wezterm did not report a pane id.' };
   }
 
-  // Keep the user in Qanban; Enter on the task brings the new pane forward.
+  // Keep the user in Kaygent; Enter on the task brings the new pane forward.
   if (deps.env.WEZTERM_PANE) {
     deps.run('wezterm', [
       'cli',
@@ -401,8 +401,8 @@ function windowsTerminalFocusScript(title: string): string {
 function spawnWindowsTerminal(context: SpawnContext): TerminalResult {
   const { deps, settings, tokens, cwd, title } = context;
   const suffix = deps.nextId();
-  const windowName = `qanban-${suffix}`;
-  const pidFile = join(deps.tmpDir, `qanban-${suffix}.pid`);
+  const windowName = `kaygent-${suffix}`;
+  const pidFile = join(deps.tmpDir, `kaygent-${suffix}.pid`);
 
   const call = tokens.map(powershellQuote).join(' ');
   const script = [
@@ -794,7 +794,7 @@ export function createTerminalController(
     options: { title: string; cwd?: string; task?: SpawnTask },
   ): TerminalResult => {
     const cwd = options.cwd ?? settings.cwd ?? deps.cwd;
-    const title = sanitizeTitle(options.title) || 'Qanban';
+    const title = sanitizeTitle(options.title) || 'Kaygent';
 
     const context: SpawnContext = {
       task: options.task ?? {
@@ -834,7 +834,7 @@ export function createTerminalController(
       id: task.id,
       cwd,
     });
-    const title = sanitizeTitle(rawTitle) || `Qanban · ${task.title}`;
+    const title = sanitizeTitle(rawTitle) || `Kaygent · ${task.title}`;
     const tokens = resolveCommandTokens(settings.command, {
       title: task.title,
       tags: task.tags.join(' '),
@@ -850,7 +850,7 @@ export function createTerminalController(
     options: { title?: string; cwd?: string } = {},
   ): TerminalResult =>
     launch([...command], {
-      title: options.title ?? 'Qanban',
+      title: options.title ?? 'Kaygent',
       cwd: options.cwd,
     });
 

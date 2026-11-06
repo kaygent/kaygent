@@ -402,7 +402,7 @@ function runForegroundSource(
   const platform = deps.platform ?? process.platform;
   const sleep = deps.sleep ?? defaultSleep;
   const directory = mkdtempSync(
-    join(deps.tmpDir ?? tmpdir(), 'qanban-source-'),
+    join(deps.tmpDir ?? tmpdir(), 'kaygent-source-'),
   );
   const outputPath = join(directory, 'output.json');
   const exitPath = join(directory, 'exit.code');
@@ -437,7 +437,7 @@ function runForegroundSource(
     }
 
     const spawned = terminal.spawnCommand(command, {
-      title: `Qanban sync · ${source.sourceName}`,
+      title: `Kaygent sync · ${source.sourceName}`,
       cwd: source.cwd ?? deps.cwd,
     });
 

@@ -57,26 +57,26 @@ export interface TerminalSettings {
   custom: CustomTerminalCommands;
 }
 
-export interface QanbanConfig {
+export interface KaygentConfig {
   columns: StageUiOverrides;
   terminal: TerminalSettings;
   taskSources: TaskSourceSettings[];
 }
 
 export interface LoadedConfig {
-  config: QanbanConfig;
+  config: KaygentConfig;
   filePath: string;
   exists: boolean;
   warning?: string;
 }
 
-export const DEFAULT_CONFIG: QanbanConfig = {
+export const DEFAULT_CONFIG: KaygentConfig = {
   columns: {},
   taskSources: [],
   terminal: {
     provider: 'auto',
     command: ['claude', '{title}'],
-    title: 'Qanban · {title}',
+    title: 'Kaygent · {title}',
     newWindow: false,
     pauseBehavior: 'keep',
     focusOnEnter: true,
@@ -89,8 +89,8 @@ export const DEFAULT_CONFIG: QanbanConfig = {
 };
 
 export function defaultConfigFile(): string {
-  if (process.env.QANBAN_CONFIG_FILE) {
-    return resolve(process.env.QANBAN_CONFIG_FILE);
+  if (process.env.KAYGENT_CONFIG_FILE) {
+    return resolve(process.env.KAYGENT_CONFIG_FILE);
   }
 
   return join(defaultDataDirectory(), 'config.json');
@@ -323,7 +323,7 @@ function parseTaskSources(
 }
 
 export function parseConfig(value: unknown): {
-  config: QanbanConfig;
+  config: KaygentConfig;
   warnings: string[];
 } {
   const config = structuredClone(DEFAULT_CONFIG);

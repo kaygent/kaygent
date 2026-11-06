@@ -1,20 +1,20 @@
 <p align="center">
-  <img src="assets/icon.svg" width="120" alt="Qanban icon">
+  <img src="assets/icon.svg" width="120" alt="Kaygent icon">
 </p>
 
 <p align="center">
-  <a href="https://qanban.github.io/qanban/">Website</a> ·
-  <a href="https://github.com/qanban/qanban">GitHub</a>
+  <a href="https://kaygent.github.io/kaygent/">Website</a> ·
+  <a href="https://github.com/kaygent/kaygent">GitHub</a>
 </p>
 
-# Qanban
+# Kaygent
 
 A polished, React-powered terminal kanban board for managing a todo list without
 leaving the terminal. Built with [Ink](https://github.com/vadimdemedes/ink) and
 React 19, and packaged as a standalone Windows executable.
 
 ```text
-  ◈ QANBAN  /  terminal kanban                                                          Sun, 1 Nov   7 open  ·  2 done
+  ◈ KAYGENT  /  terminal kanban                                                          Sun, 1 Nov   7 open  ·  2 done
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
   ╭──────────────────────────╮  ╭─────────────────────────╮  ╭──────────────────────────╮  ╭─────────────────────────╮
@@ -22,7 +22,7 @@ React 19, and packaged as a standalone Windows executable.
   │ ▌ Refine shortcuts       │  │   Polish empty state    │  │   Build kanban keys      │  │   Sketch board layout   │
   │ ▌  #design #ux           │  │    #ux #polish          │  │    #engine #focus        │  │    #design              │
   │                          │  │                         │  │                          │  │                         │
-  │   Write release notes    │  │   Collect feedback      │  │   Add tag colors         │  │   Set up Qanban         │
+  │   Write release notes    │  │   Collect feedback      │  │   Add tag colors         │  │   Set up Kaygent         │
   │    #docs #release        │  │    #research            │  │    #design #colors       │  │    #setup               │
   │                          │  │                         │  │                          │  │                         │
   │   Try a compact view     │  │                         │  │                          │  │                         │
@@ -39,13 +39,13 @@ React 19, and packaged as a standalone Windows executable.
 The standalone build is included at:
 
 ```text
-release\Qanban.exe
+release\Kaygent.exe
 ```
 
 Double-click it, or run it from Windows Terminal / PowerShell / cmd:
 
 ```powershell
-.\release\Qanban.exe
+.\release\Kaygent.exe
 ```
 
 The executable is self-contained — Node.js is **not** required. It targets
@@ -53,7 +53,7 @@ The executable is self-contained — Node.js is **not** required. It targets
 recommended. To explore a sample board without touching your data:
 
 ```powershell
-.\release\Qanban.exe --demo
+.\release\Kaygent.exe --demo
 ```
 
 > The executable is not code-signed, so Windows SmartScreen may show a warning
@@ -110,7 +110,7 @@ Inside an add/edit dialog: `Tab` or `↑↓` switches fields, `Enter` saves, and
 ## Terminal handoff
 
 Moving a task from New to Active opens a new tab or window in the terminal
-Qanban was launched from and runs the configured command (by default
+Kaygent was launched from and runs the configured command (by default
 `claude "{title}"`). The terminal handle is saved with the board, so the link
 survives a restart.
 
@@ -122,7 +122,7 @@ survives a restart.
 - **Enter on an Active task with a session** focuses the terminal. Tasks without
   a session fall back to the normal edit dialog.
 
-Qanban detects the terminal it is running inside, in this order:
+Kaygent detects the terminal it is running inside, in this order:
 
 | Provider | Detected by | Launch | Focus | Close |
 | --- | --- | --- | --- | --- |
@@ -140,15 +140,15 @@ the wrapper process that runs the agent. The `process` fallback on Unix uses
 
 ## Configuration
 
-Qanban reads `config.json` next to the board file:
+Kaygent reads `config.json` next to the board file:
 
 | Platform | Path |
 | --- | --- |
-| Windows | `%APPDATA%\Qanban\config.json` |
-| macOS | `~/Library/Application Support/Qanban/config.json` |
-| Linux | `$XDG_CONFIG_HOME/qanban/config.json` or `~/.config/qanban/config.json` |
+| Windows | `%APPDATA%\Kaygent\config.json` |
+| macOS | `~/Library/Application Support/Kaygent/config.json` |
+| Linux | `$XDG_CONFIG_HOME/kaygent/config.json` or `~/.config/kaygent/config.json` |
 
-Override the location with `QANBAN_CONFIG_FILE`. A missing file uses the
+Override the location with `KAYGENT_CONFIG_FILE`. A missing file uses the
 defaults. Invalid values are ignored with a warning shown in the footer.
 
 ```json
@@ -177,7 +177,7 @@ defaults. Invalid values are ignored with a warning shown in the footer.
     "provider": "auto",
     "command": ["claude", "{title}"],
     "cwd": null,
-    "title": "Qanban · {title}",
+    "title": "Kaygent · {title}",
     "newWindow": false,
     "pauseBehavior": "keep",
     "focusOnEnter": true,
@@ -202,8 +202,8 @@ behavior, so they stay fixed. Their appearance is configurable through
 | --- | --- | --- |
 | `provider` | `auto` | `auto`, `herdr`, `tmux`, `wezterm`, `wt`, `process`, or `custom` |
 | `command` | `["claude", "{title}"]` | Program and arguments run in the new terminal; an empty array opens a shell |
-| `cwd` | `null` | Working directory; defaults to the directory where Qanban was launched |
-| `title` | `Qanban · {title}` | Terminal/tab title template |
+| `cwd` | `null` | Working directory; defaults to the directory where Kaygent was launched |
+| `title` | `Kaygent · {title}` | Terminal/tab title template |
 | `newWindow` | `false` | Use a new window instead of a new tab where supported |
 | `pauseBehavior` | `keep` | `keep` or `close` when a task moves to Paused |
 | `focusOnEnter` | `true` | Let Enter focus the Active task's terminal |
@@ -219,7 +219,7 @@ local configuration.
 
 ### Task sources
 
-`taskSources` is an array of independent feeds. Qanban runs each command in a
+`taskSources` is an array of independent feeds. Kaygent runs each command in a
 shell, expects JSON on stdout, and appends new items to the New column. Press
 `r` to sync manually; sources with `syncOnStart: true` also run once at startup.
 
@@ -229,17 +229,17 @@ shell, expects JSON on stdout, and appends new items to the New column. Press
 | `command` | yes | — | Shell command that prints JSON to stdout |
 | `format` | no | `auto` | `auto`, `messages`, or `tasks` |
 | `tags` | no | `[]` | Tags added to every imported task |
-| `cwd` | no | Qanban's cwd | Working directory for the command |
+| `cwd` | no | Kaygent's cwd | Working directory for the command |
 | `timeoutMs` | no | `30000` | Kill the command after this many milliseconds |
 | `syncOnStart` | no | `false` | Run once at startup; `r` always runs every source |
 | `refreshMinutes` | no | `never` | `never`, or minutes between automatic refreshes (max 10080) |
 | `runMode` | no | `background` | `background` captures stdout; `foreground` runs in a terminal tab/window |
 
-`refreshMinutes` schedules refreshes **while Qanban is open**; the first run is
+`refreshMinutes` schedules refreshes **while Kaygent is open**; the first run is
 one interval after launch. `r` remains the manual sync-all shortcut, and
 `syncOnStart` is a separate one-time startup run.
 
-In `foreground` mode Qanban opens a terminal tab or window through the configured
+In `foreground` mode Kaygent opens a terminal tab or window through the configured
 terminal provider (honoring `terminal.newWindow`), focuses it, runs the source
 command, waits for it to finish, reads its JSON output, and closes the tab.
 Stdout is captured to a temporary file; stderr stays visible in the tab. This is
@@ -248,7 +248,7 @@ block the board until they finish or `timeoutMs` expires.
 
 Accepted output shapes:
 
-- `{ "messages": [ ... ] }` — raw messages. Qanban derives titles and ids.
+- `{ "messages": [ ... ] }` — raw messages. Kaygent derives titles and ids.
 - `{ "tasks": [ ... ] }` — task objects. Every item needs `id` and `title`.
 - `{ "items": [ ... ] }` or a bare JSON array — treated as messages unless
   `format` is `tasks`.
@@ -310,10 +310,10 @@ Common field aliases are accepted, so tools like `gh` work without a wrapper:
 - Deleting an imported task means a later sync can import it again.
 - Within one sync, duplicate ids in the same batch are also skipped.
 
-The **messages** format is the safer default: Qanban owns id derivation and
+The **messages** format is the safer default: Kaygent owns id derivation and
 deduplication, and each source only needs to emit raw items. The **tasks**
 format is for feeds that already produce a deduplicated list with stable ids;
-Qanban still namespaces those ids and skips ones already on the board as a
+Kaygent still namespaces those ids and skips ones already on the board as a
 safety net.
 
 Source commands run with your user privileges. A failing source does not block
@@ -321,16 +321,16 @@ the others; invalid items are skipped and reported in the footer.
 
 ## Where data is stored
 
-Qanban saves automatically to:
+Kaygent saves automatically to:
 
 ```text
-%APPDATA%\Qanban\board.json
+%APPDATA%\Kaygent\board.json
 ```
 
 The board is plain JSON, so it is easy to back up or inspect. Active tasks also
 store a small `session` object with the provider handle used to focus or close
 their terminal. Imported tasks store a `source` object with their source name,
-item id, and URL. If the file is corrupt, Qanban moves it aside as
+item id, and URL. If the file is corrupt, Kaygent moves it aside as
 `board.json.corrupt-<timestamp>` and starts a fresh board. Missing or invalid
 task entries are skipped while valid entries are kept.
 
@@ -341,15 +341,15 @@ Optional overrides:
 
 | Environment variable | Purpose |
 | --- | --- |
-| `QANBAN_DATA_FILE` | Use a specific board JSON file |
-| `QANBAN_DATA_DIR` | Use a specific data directory |
-| `QANBAN_CONFIG_FILE` | Use a specific configuration file |
-| `QANBAN_NO_ALT` | Set to `1` to draw inline instead of using the fullscreen buffer |
+| `KAYGENT_DATA_FILE` | Use a specific board JSON file |
+| `KAYGENT_DATA_DIR` | Use a specific data directory |
+| `KAYGENT_CONFIG_FILE` | Use a specific configuration file |
+| `KAYGENT_NO_ALT` | Set to `1` to draw inline instead of using the fullscreen buffer |
 
 ## Command-line options
 
 ```text
-Qanban.exe [options]
+Kaygent.exe [options]
 
   --demo        Open a sample board; nothing is saved
   --no-alt      Draw inline instead of using the fullscreen buffer
@@ -374,7 +374,7 @@ npm run typecheck
 npm run build      # typecheck + tests + bundle + Windows executable
 ```
 
-The final binary is written to `release\Qanban.exe`. Other useful scripts:
+The final binary is written to `release\Kaygent.exe`. Other useful scripts:
 
 ```powershell
 npm run bundle     # create dist/cli.mjs
@@ -409,7 +409,7 @@ src/
 test/                   Node test runner + ink-testing-library tests
 scripts/                esbuild and pkg build scripts
 docs/                   GitHub Pages landing page
-release/Qanban.exe      standalone Windows build
+release/Kaygent.exe      standalone Windows build
 ```
 
 Long titles are truncated in narrow columns; press `e` to view and edit the full

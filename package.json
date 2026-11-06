@@ -1,5 +1,5 @@
 {
-  "name": "qanban",
+  "name": "kaygent",
   "version": "1.0.0",
   "description": "A polished React-powered terminal kanban todo manager",
   "type": "module",

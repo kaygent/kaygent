@@ -23,8 +23,8 @@ await build({
   logLevel: 'info',
   banner: {
     js: [
-      "import { createRequire as __qanbanCreateRequire } from 'node:module';",
-      "const require = __qanbanCreateRequire(import.meta.url);",
+      "import { createRequire as __kaygentCreateRequire } from 'node:module';",
+      "const require = __kaygentCreateRequire(import.meta.url);",
     ].join('\n'),
   },
   define: {

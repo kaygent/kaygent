@@ -33,7 +33,7 @@ function settings(overrides: Partial<TerminalSettings> = {}): TerminalSettings {
   return {
     provider: 'wezterm',
     command: ['claude', '{title}'],
-    title: 'Qanban · {title}',
+    title: 'Kaygent · {title}',
     newWindow: false,
     pauseBehavior: 'keep',
     focusOnEnter: true,
@@ -44,7 +44,7 @@ function settings(overrides: Partial<TerminalSettings> = {}): TerminalSettings {
 
 const task = { id: 'task-1', title: 'Fix login', tags: ['work'] };
 
-test('detects the terminal that launched Qanban', () => {
+test('detects the terminal that launched Kaygent', () => {
   assert.equal(
     detectProvider({
       HERDR_ENV: '1',
@@ -112,7 +112,7 @@ test('runs arbitrary commands in a terminal tab', () => {
   );
 
   const spawned = controller.spawnCommand(['/bin/sh', 'sync.sh'], {
-    title: 'Qanban sync · github',
+    title: 'Kaygent sync · github',
     cwd: '/repo',
   });
 
@@ -148,7 +148,7 @@ test('spawns tmux windows and selects them', () => {
     '-c',
     '/work',
     '-n',
-    'Qanban · Fix login',
+    'Kaygent · Fix login',
     "'claude' 'Fix login'",
   ]);
 
@@ -192,7 +192,7 @@ test('creates herdr tabs, runs the agent, and closes by tab id', () => {
     '--cwd',
     '/work',
     '--label',
-    'Qanban · Fix login',
+    'Kaygent · Fix login',
     '--no-focus',
   ]);
   assert.deepEqual(calls[1], [
@@ -233,7 +233,7 @@ test('runs custom terminal command templates', () => {
   assert.equal(spawned.session?.id, 'session-9');
   assert.equal(
     shellCalls[0],
-    "myterm open --title 'Qanban · Fix login' --cwd '/work' 'claude' 'Fix login'",
+    "myterm open --title 'Kaygent · Fix login' --cwd '/work' 'claude' 'Fix login'",
   );
 
   assert.equal(controller.focus(spawned.session!).ok, true);
@@ -244,8 +244,8 @@ test('runs custom terminal command templates', () => {
 
 test('quotes Windows shell values without mangling paths', () => {
   assert.equal(
-    windowsQuote('C:\\Program Files\\Qanban'),
-    '"C:\\Program Files\\Qanban"',
+    windowsQuote('C:\\Program Files\\Kaygent'),
+    '"C:\\Program Files\\Kaygent"',
   );
   assert.equal(windowsQuote('say "hi"'), '"say ""hi"""');
 });
@@ -268,21 +268,21 @@ test('spawns and focuses named Windows Terminal windows', () => {
 
   const spawned = controller.spawn(task);
   assert.equal(spawned.ok, true);
-  assert.equal(spawned.session?.windowName, 'qanban-abc123');
-  assert.ok(spawned.session?.pidFile?.endsWith('qanban-abc123.pid'));
+  assert.equal(spawned.session?.windowName, 'kaygent-abc123');
+  assert.ok(spawned.session?.pidFile?.endsWith('kaygent-abc123.pid'));
   assert.deepEqual(calls[0]?.args.slice(0, 6), [
     '-w',
-    'qanban-abc123',
+    'kaygent-abc123',
     'new-tab',
     '--title',
-    'Qanban · Fix login',
+    'Kaygent · Fix login',
     '-d',
   ]);
 
   assert.equal(controller.focus(spawned.session!).ok, true);
   assert.deepEqual(calls.at(-1)?.args, [
     '-w',
-    'qanban-abc123',
+    'kaygent-abc123',
     'focus-tab',
     '-t',
     '0',

@@ -98,9 +98,9 @@ function helpText(): string {
     '  Columns, terminal integration, and task sources are configured in:',
     `  ${defaultConfigFile()}`,
     '',
-    '  Set QANBAN_DATA_FILE to use a specific board file, or',
-    '  QANBAN_CONFIG_FILE for a specific config file. Set',
-    '  QANBAN_NO_ALT=1 to disable the fullscreen terminal buffer.',
+    '  Set KAYGENT_DATA_FILE to use a specific board file, or',
+    '  KAYGENT_CONFIG_FILE for a specific config file. Set',
+    '  KAYGENT_NO_ALT=1 to disable the fullscreen terminal buffer.',
     '',
   ].join('\n');
 }
@@ -136,8 +136,8 @@ async function main(): Promise<void> {
 
   if (!process.stdin.isTTY || !process.stdout.isTTY) {
     process.stderr.write(
-      '\nQanban needs an interactive terminal.\n' +
-        'Open Windows Terminal (or PowerShell), run Qanban.exe there, and try again.\n' +
+      '\nKaygent needs an interactive terminal.\n' +
+        'Open Windows Terminal (or PowerShell), run Kaygent.exe there, and try again.\n' +
         'Use --help for options, or --selftest for a non-interactive check.\n\n',
     );
     process.exitCode = 1;
@@ -155,7 +155,7 @@ async function main(): Promise<void> {
 
   const useAltScreen =
     !options.noAlt &&
-    process.env.QANBAN_NO_ALT !== '1' &&
+    process.env.KAYGENT_NO_ALT !== '1' &&
     process.stdout.isTTY;
 
   let restored = false;
@@ -255,7 +255,7 @@ async function main(): Promise<void> {
   } catch (error) {
     restoreTerminal();
     const message = error instanceof Error ? error.stack ?? error.message : String(error);
-    process.stderr.write(`\nQanban stopped unexpectedly:\n${message}\n\n`);
+    process.stderr.write(`\nKaygent stopped unexpectedly:\n${message}\n\n`);
     process.exitCode = 1;
     return;
   } finally {
@@ -265,6 +265,6 @@ async function main(): Promise<void> {
 
 void main().catch((error: unknown) => {
   const message = error instanceof Error ? error.stack ?? error.message : String(error);
-  process.stderr.write(`\nQanban failed to start:\n${message}\n\n`);
+  process.stderr.write(`\nKaygent failed to start:\n${message}\n\n`);
   process.exitCode = 1;
 });
