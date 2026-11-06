@@ -117,6 +117,8 @@ test('parses task sources and warns about invalid entries', () => {
         cwd: 'repos',
         timeoutMs: 5_000,
         syncOnStart: true,
+        refreshMinutes: 15,
+        runMode: 'foreground',
       },
       { sourceName: 'github', command: 'duplicate' },
       {
@@ -125,6 +127,8 @@ test('parses task sources and warns about invalid entries', () => {
         format: 'bogus',
         timeoutMs: 0,
         syncOnStart: 'yes',
+        refreshMinutes: 0,
+        runMode: 'sideways',
       },
       { command: 'missing name' },
     ],
@@ -139,17 +143,23 @@ test('parses task sources and warns about invalid entries', () => {
   assert.equal(github.cwd, resolve(process.cwd(), 'repos'));
   assert.equal(github.timeoutMs, 5_000);
   assert.equal(github.syncOnStart, true);
+  assert.equal(github.refreshMinutes, 15);
+  assert.equal(github.runMode, 'foreground');
 
   const jira = config.taskSources[1]!;
   assert.equal(jira.format, 'auto');
   assert.equal(jira.timeoutMs, 30_000);
   assert.equal(jira.syncOnStart, false);
+  assert.equal(jira.refreshMinutes, 'never');
+  assert.equal(jira.runMode, 'background');
 
   assert.match(warnings.join(' '), /duplicate sourceName/);
   assert.match(warnings.join(' '), /\.format must be one of/);
   assert.match(warnings.join(' '), /\.timeoutMs must be between/);
   assert.match(warnings.join(' '), /\.syncOnStart must be a boolean/);
   assert.match(warnings.join(' '), /\.sourceName is required/);
+  assert.match(warnings.join(' '), /\.refreshMinutes must be/);
+  assert.match(warnings.join(' '), /\.runMode must be one of/);
 });
 
 test('rejects a non-array taskSources value', () => {

@@ -1,4 +1,7 @@
 import assert from 'node:assert/strict';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { dirname, join } from 'node:path';
 import test from 'node:test';
 import { createEmptyBoard, type Board } from '../src/board';
 import type { TaskSourceSettings } from '../src/config';
@@ -9,6 +12,7 @@ import {
   syncTaskSources,
   type SourceDeps,
 } from '../src/sources';
+import type { TerminalControl, TerminalSession } from '../src/terminal';
 import type { RunResult } from '../src/terminal/command';
 
 const NOW = new Date('2026-03-04T05:06:07.000Z');
@@ -27,6 +31,8 @@ function source(
     tags: [],
     timeoutMs: 30_000,
     syncOnStart: false,
+    refreshMinutes: 'never',
+    runMode: 'background',
     ...overrides,
   };
 }
@@ -298,4 +304,146 @@ test('uses per-source working directory and timeout', () => {
 test('service reports whether sources are configured', () => {
   assert.equal(createTaskSourceService([]).enabled, false);
   assert.equal(createTaskSourceService([source()]).enabled, true);
+});
+
+function fakeForegroundTerminal(behavior: {
+  spawnOk?: boolean;
+  write?: (directory: string) => void;
+} = {}): {
+  terminal: TerminalControl;
+  calls: string[];
+} {
+  const calls: string[] = [];
+  const session: TerminalSession = {
+    provider: 'fake',
+    id: 'session-1',
+    title: 'Qanban sync · github',
+    createdAt: NOW.toISOString(),
+  };
+
+  const terminal: TerminalControl = {
+    provider: 'fake',
+    pauseBehavior: 'keep',
+    focusOnEnter: true,
+    spawn: () => ({ ok: false, error: 'not used' }),
+    spawnCommand(command, options) {
+      calls.push(`spawn:${command.join(' ')}`);
+      calls.push(`title:${options?.title ?? ''}`);
+      if (behavior.spawnOk === false) {
+        return { ok: false, error: 'no terminal' };
+      }
+      const scriptPath = command.at(-1);
+      if (scriptPath && behavior.write) {
+        behavior.write(dirname(scriptPath));
+      }
+      return { ok: true, session };
+    },
+    focus: (target) => {
+      calls.push(`focus:${target.id}`);
+      return { ok: true };
+    },
+    close: (target) => {
+      calls.push(`close:${target.id}`);
+      return { ok: true };
+    },
+  };
+
+  return { terminal, calls };
+}
+
+test('runs foreground sources in a terminal and closes it', (t) => {
+  const directory = mkdtempSync(join(tmpdir(), 'qanban-fg-test-'));
+  t.after(() => rmSync(directory, { recursive: true, force: true }));
+  const fake = fakeForegroundTerminal({
+    write: (dir) => {
+      writeFileSync(
+        join(dir, 'output.json'),
+        JSON.stringify([{ id: 'fg-1', title: 'Foreground task' }]),
+        'utf8',
+      );
+      writeFileSync(join(dir, 'exit.code'), '0', 'utf8');
+    },
+  });
+
+  const outcome = syncTaskSources(
+    createEmptyBoard(),
+    [source({ runMode: 'foreground', timeoutMs: 1_000 })],
+    {
+      ...makeDeps({}).deps,
+      terminal: fake.terminal,
+      platform: process.platform,
+      tmpDir: directory,
+    },
+  );
+
+  assert.deepEqual(outcome.errors, []);
+  assert.equal(outcome.added[0]?.id, 'source:github:fg-1');
+  assert.ok(fake.calls.some((call) => call.startsWith('spawn:')));
+  assert.ok(fake.calls.includes('focus:session-1'));
+  assert.ok(fake.calls.includes('close:session-1'));
+  assert.ok(
+    fake.calls.some((call) => call === 'title:Qanban sync · github'),
+  );
+});
+
+test('closes the foreground terminal when the source times out', (t) => {
+  const directory = mkdtempSync(join(tmpdir(), 'qanban-fg-timeout-'));
+  t.after(() => rmSync(directory, { recursive: true, force: true }));
+  const fake = fakeForegroundTerminal();
+
+  const outcome = syncTaskSources(
+    createEmptyBoard(),
+    [source({ runMode: 'foreground', timeoutMs: 20 })],
+    {
+      ...makeDeps({}).deps,
+      terminal: fake.terminal,
+      platform: process.platform,
+      tmpDir: directory,
+    },
+  );
+
+  assert.equal(outcome.added.length, 0);
+  assert.match(outcome.errors[0]?.error ?? '', /timed out/i);
+  assert.ok(fake.calls.includes('close:session-1'));
+});
+
+test('reports foreground terminal launch failures', (t) => {
+  const directory = mkdtempSync(join(tmpdir(), 'qanban-fg-fail-'));
+  t.after(() => rmSync(directory, { recursive: true, force: true }));
+  const fake = fakeForegroundTerminal({ spawnOk: false });
+
+  const outcome = syncTaskSources(
+    createEmptyBoard(),
+    [source({ runMode: 'foreground' })],
+    {
+      ...makeDeps({}).deps,
+      terminal: fake.terminal,
+      platform: process.platform,
+      tmpDir: directory,
+    },
+  );
+
+  assert.equal(outcome.added.length, 0);
+  assert.match(outcome.errors[0]?.error ?? '', /Could not open a terminal/i);
+});
+
+test('runs only the requested source for scheduled syncs', () => {
+  const { deps, calls } = makeDeps({
+    alpha: result(JSON.stringify([{ id: 'a1', title: 'From alpha' }])),
+    beta: result(JSON.stringify([{ id: 'b1', title: 'From beta' }])),
+  });
+
+  const outcome = syncTaskSources(
+    createEmptyBoard(),
+    [
+      source({ sourceName: 'alpha', command: 'alpha' }),
+      source({ sourceName: 'beta', command: 'beta' }),
+    ],
+    deps,
+    { sourceName: 'beta' },
+  );
+
+  assert.deepEqual(calls.map((call) => call.command), ['beta']);
+  assert.equal(outcome.syncedSources, 1);
+  assert.equal(outcome.added[0]?.id, 'source:beta:b1');
 });

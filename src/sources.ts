@@ -1,5 +1,14 @@
 import { createHash } from 'node:crypto';
 import {
+  existsSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import {
   normalizeTitle,
   parseTags,
   STAGE_IDS,
@@ -8,6 +17,7 @@ import {
   type TaskSourceRef,
 } from './board';
 import type { SourceFormat, TaskSourceSettings } from './config';
+import type { TerminalControl, TerminalSession } from './terminal';
 import {
   defaultShellRun,
   failureMessage,
@@ -30,12 +40,18 @@ export interface SourceSyncResult {
 export interface SourceSyncOptions {
   /** Only run sources with syncOnStart enabled. */
   startupOnly?: boolean;
+  /** Run only this source (used by scheduled refreshes). */
+  sourceName?: string;
 }
 
 export interface SourceDeps {
   runShell: ShellRunner;
   now: () => Date;
   cwd: string;
+  terminal?: TerminalControl;
+  platform?: NodeJS.Platform;
+  tmpDir?: string;
+  sleep?: (milliseconds: number) => void;
 }
 
 export interface TaskSourceService {
@@ -316,22 +332,13 @@ export function extractSourceItems(
   };
 }
 
-function runSource(
+type SourcePayload = { kind: ItemKind; items: unknown[] } | { error: string };
+
+function parseSourceOutput(
   source: TaskSourceSettings,
-  deps: SourceDeps,
-): { kind: ItemKind; items: unknown[] } | { error: string } {
-  const result = deps.runShell(source.command, {
-    cwd: source.cwd ?? deps.cwd,
-    timeoutMs: source.timeoutMs,
-  });
-
-  if (result.error || result.status !== 0) {
-    return {
-      error: failureMessage(`${source.sourceName} command failed`, result),
-    };
-  }
-
-  const output = result.stdout.replace(/^﻿/, '').trim();
+  raw: string,
+): SourcePayload {
+  const output = raw.replace(/^﻿/, '').trim();
   if (!output) {
     return { error: `${source.sourceName} returned no output.` };
   }
@@ -354,15 +361,163 @@ function runSource(
   return extracted;
 }
 
+function runBackgroundSource(
+  source: TaskSourceSettings,
+  deps: SourceDeps,
+): SourcePayload {
+  const result = deps.runShell(source.command, {
+    cwd: source.cwd ?? deps.cwd,
+    timeoutMs: source.timeoutMs,
+  });
+
+  if (result.error || result.status !== 0) {
+    return {
+      error: failureMessage(`${source.sourceName} command failed`, result),
+    };
+  }
+
+  return parseSourceOutput(source, result.stdout);
+}
+
+function defaultSleep(milliseconds: number): void {
+  Atomics.wait(
+    new Int32Array(new SharedArrayBuffer(4)),
+    0,
+    0,
+    milliseconds,
+  );
+}
+
+function runForegroundSource(
+  source: TaskSourceSettings,
+  deps: SourceDeps,
+): SourcePayload {
+  const terminal = deps.terminal;
+  if (!terminal) {
+    return {
+      error: `${source.sourceName} is configured for foreground mode, but no terminal is available.`,
+    };
+  }
+
+  const platform = deps.platform ?? process.platform;
+  const sleep = deps.sleep ?? defaultSleep;
+  const directory = mkdtempSync(
+    join(deps.tmpDir ?? tmpdir(), 'qanban-source-'),
+  );
+  const outputPath = join(directory, 'output.json');
+  const exitPath = join(directory, 'exit.code');
+  let session: TerminalSession | undefined;
+
+  try {
+    let command: string[];
+    if (platform === 'win32') {
+      const scriptPath = join(directory, 'sync.cmd');
+      writeFileSync(
+        scriptPath,
+        [
+          '@echo off',
+          `${source.command} > "${outputPath}"`,
+          `echo %ERRORLEVEL% > "${exitPath}"`,
+        ].join('\r\n'),
+        'utf8',
+      );
+      command = ['cmd.exe', '/c', scriptPath];
+    } else {
+      const scriptPath = join(directory, 'sync.sh');
+      writeFileSync(
+        scriptPath,
+        [
+          '#!/bin/sh',
+          `${source.command} > '${outputPath}'`,
+          `echo $? > '${exitPath}'`,
+        ].join('\n'),
+        'utf8',
+      );
+      command = ['/bin/sh', scriptPath];
+    }
+
+    const spawned = terminal.spawnCommand(command, {
+      title: `Qanban sync · ${source.sourceName}`,
+      cwd: source.cwd ?? deps.cwd,
+    });
+
+    if (!spawned.ok || !spawned.session) {
+      return {
+        error: `Could not open a terminal for ${source.sourceName}: ${spawned.error ?? 'unknown error'}`,
+      };
+    }
+
+    session = spawned.session;
+    terminal.focus(session);
+
+    const deadline = Date.now() + source.timeoutMs;
+    while (!existsSync(exitPath)) {
+      if (Date.now() >= deadline) {
+        terminal.close(session);
+        session = undefined;
+        return {
+          error: `${source.sourceName} timed out after ${source.timeoutMs}ms in its terminal.`,
+        };
+      }
+      sleep(Math.min(100, Math.max(1, deadline - Date.now())));
+    }
+
+    terminal.close(session);
+    session = undefined;
+
+    const exitText = readFileSync(exitPath, 'utf8').trim();
+    const exitCode = Number.parseInt(exitText, 10);
+    if (!Number.isFinite(exitCode)) {
+      return {
+        error: `${source.sourceName} did not report an exit code.`,
+      };
+    }
+    if (exitCode !== 0) {
+      return {
+        error: `${source.sourceName} exited with code ${exitCode}.`,
+      };
+    }
+
+    let output = '';
+    try {
+      output = readFileSync(outputPath, 'utf8');
+    } catch {
+      // The command may have exited before writing anything.
+    }
+
+    return parseSourceOutput(source, output);
+  } finally {
+    if (session) {
+      terminal.close(session);
+    }
+    rmSync(directory, { recursive: true, force: true });
+  }
+}
+
+function runSource(
+  source: TaskSourceSettings,
+  deps: SourceDeps,
+): SourcePayload {
+  return source.runMode === 'foreground'
+    ? runForegroundSource(source, deps)
+    : runBackgroundSource(source, deps);
+}
+
 export function syncTaskSources(
   board: Board,
   sources: readonly TaskSourceSettings[],
   deps: SourceDeps,
   options: SourceSyncOptions = {},
 ): SourceSyncResult {
-  const selected = options.startupOnly
+  let selected = options.startupOnly
     ? sources.filter((source) => source.syncOnStart)
     : sources;
+
+  if (options.sourceName) {
+    selected = selected.filter(
+      (source) => source.sourceName === options.sourceName,
+    );
+  }
 
   const existingIds = new Set<string>();
   for (const stage of STAGE_IDS) {
@@ -377,7 +532,15 @@ export function syncTaskSources(
   let skipped = 0;
 
   for (const source of selected) {
-    const result = runSource(source, deps);
+    let result: SourcePayload;
+    try {
+      result = runSource(source, deps);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      errors.push({ sourceName: source.sourceName, error: message });
+      continue;
+    }
+
     if ('error' in result) {
       errors.push({ sourceName: source.sourceName, error: result.error });
       continue;

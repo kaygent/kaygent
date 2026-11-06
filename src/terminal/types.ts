@@ -33,12 +33,22 @@ export interface TerminalResult {
   unsupported?: boolean;
 }
 
+export interface SpawnCommandOptions {
+  title?: string;
+  cwd?: string;
+}
+
 export interface TerminalControl {
   /** The concrete provider in use after `auto` detection. */
   readonly provider: string;
   readonly pauseBehavior: 'keep' | 'close';
   readonly focusOnEnter: boolean;
   spawn(task: SpawnTask): TerminalResult;
+  /** Run an arbitrary command in a terminal tab/window. */
+  spawnCommand(
+    command: readonly string[],
+    options?: SpawnCommandOptions,
+  ): TerminalResult;
   focus(session: TerminalSession): TerminalResult;
   close(session: TerminalSession): TerminalResult;
 }

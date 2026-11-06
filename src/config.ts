@@ -20,6 +20,10 @@ export const SOURCE_FORMATS = ['auto', 'tasks', 'messages'] as const;
 
 export type SourceFormat = (typeof SOURCE_FORMATS)[number];
 
+export const SOURCE_RUN_MODES = ['background', 'foreground'] as const;
+
+export type SourceRunMode = (typeof SOURCE_RUN_MODES)[number];
+
 export interface TaskSourceSettings {
   /** Unique name used to namespace imported task ids. */
   sourceName: string;
@@ -30,6 +34,10 @@ export interface TaskSourceSettings {
   cwd?: string;
   timeoutMs: number;
   syncOnStart: boolean;
+  /** Minutes between automatic syncs, or "never" for manual-only. */
+  refreshMinutes: number | 'never';
+  /** Background captures stdout directly; foreground uses a terminal tab. */
+  runMode: SourceRunMode;
 }
 
 export interface CustomTerminalCommands {
@@ -265,6 +273,38 @@ function parseTaskSources(
       }
     }
 
+    let refreshMinutes: number | 'never' = 'never';
+    if (entry.refreshMinutes !== undefined) {
+      if (entry.refreshMinutes === 'never') {
+        refreshMinutes = 'never';
+      } else if (
+        typeof entry.refreshMinutes === 'number' &&
+        Number.isFinite(entry.refreshMinutes) &&
+        entry.refreshMinutes > 0 &&
+        entry.refreshMinutes <= 10_080
+      ) {
+        refreshMinutes = entry.refreshMinutes;
+      } else {
+        warnings.push(
+          `taskSources[${index}].refreshMinutes must be "never" or a number greater than 0 and at most 10080.`,
+        );
+      }
+    }
+
+    let runMode: SourceRunMode = 'background';
+    if (entry.runMode !== undefined) {
+      if (
+        typeof entry.runMode === 'string' &&
+        (SOURCE_RUN_MODES as readonly string[]).includes(entry.runMode)
+      ) {
+        runMode = entry.runMode as SourceRunMode;
+      } else {
+        warnings.push(
+          `taskSources[${index}].runMode must be one of: ${SOURCE_RUN_MODES.join(', ')}.`,
+        );
+      }
+    }
+
     names.add(sourceName);
     sources.push({
       sourceName,
@@ -274,6 +314,8 @@ function parseTaskSources(
       ...(cwd ? { cwd } : {}),
       timeoutMs,
       syncOnStart,
+      refreshMinutes,
+      runMode,
     });
   });
 

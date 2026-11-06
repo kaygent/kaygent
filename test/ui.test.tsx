@@ -4,7 +4,12 @@ import { render } from 'ink-testing-library';
 import React from 'react';
 import { App } from '../src/App';
 import { addTask, createEmptyBoard, type Board } from '../src/board';
-import type { SourceSyncResult } from '../src/sources';
+import type { TaskSourceSettings } from '../src/config';
+import type {
+  SourceSyncOptions,
+  SourceSyncResult,
+  TaskSourceService,
+} from '../src/sources';
 import type {
   SpawnTask,
   TerminalControl,
@@ -60,7 +65,7 @@ function mount(
   saveBoard?: (next: Board) => void,
   viewport = VIEWPORT,
   terminal?: TerminalControl,
-  syncSources?: (board: Board) => SourceSyncResult,
+  taskSources?: TaskSourceService,
 ): ReturnType<typeof render> {
   const app = render(
     <App
@@ -68,7 +73,7 @@ function mount(
       saveBoard={saveBoard}
       viewport={viewport}
       terminal={terminal}
-      syncSources={syncSources}
+      taskSources={taskSources}
       initialNotice={{ text: 'Test board', tone: 'info' }}
     />,
   );
@@ -273,6 +278,9 @@ function fakeTerminal(options: FakeTerminalOptions = {}): {
         },
       };
     },
+    spawnCommand() {
+      return { ok: false, error: 'not used in UI tests' };
+    },
     focus(session: TerminalSession) {
       calls.push(`focus:${session.id}`);
       return options.focusError
@@ -440,6 +448,29 @@ test('Enter edits an active task that has no session', async (t) => {
   assert.match(frame(app), /EDIT TASK/);
 });
 
+function sourceConfig(
+  overrides: Partial<TaskSourceSettings> = {},
+): TaskSourceSettings {
+  return {
+    sourceName: 'test',
+    command: 'test-command',
+    format: 'auto',
+    tags: [],
+    timeoutMs: 30_000,
+    syncOnStart: false,
+    refreshMinutes: 'never',
+    runMode: 'background',
+    ...overrides,
+  };
+}
+
+function fakeSourceService(
+  sync: (board: Board, options?: SourceSyncOptions) => SourceSyncResult,
+  sources: TaskSourceSettings[] = [sourceConfig()],
+): TaskSourceService {
+  return { enabled: true, sources, sync };
+}
+
 function importedTask() {
   return {
     id: 'source:test:1',
@@ -474,7 +505,7 @@ test('syncs task sources with r and adds new tasks', async (t) => {
     (next) => saves.push(next),
     VIEWPORT,
     undefined,
-    sync,
+    fakeSourceService(sync),
   );
 
   await press(app, 'r');
@@ -499,7 +530,7 @@ test('reports duplicate and invalid source items', async (t) => {
     undefined,
     VIEWPORT,
     undefined,
-    sync,
+    fakeSourceService(sync),
   );
 
   await press(app, 'r');
@@ -521,11 +552,65 @@ test('reports source command errors', async (t) => {
     undefined,
     VIEWPORT,
     undefined,
-    sync,
+    fakeSourceService(sync),
   );
 
   await press(app, 'r');
   assert.match(frame(app), /Source errors: github: command failed: boom/);
+});
+
+test('refreshes scheduled sources automatically', async (t) => {
+  const imported = importedTask();
+  let calls = 0;
+  const sync = (
+    board: Board,
+    options?: SourceSyncOptions,
+  ): SourceSyncResult => {
+    calls += 1;
+    assert.equal(options?.sourceName, 'scheduled');
+    if (calls > 1) {
+      return {
+        board,
+        added: [],
+        skipped: 0,
+        errors: [],
+        syncedSources: 1,
+      };
+    }
+    return {
+      board: {
+        ...board,
+        columns: {
+          ...board.columns,
+          new: [...board.columns.new, imported],
+        },
+      },
+      added: [imported],
+      skipped: 0,
+      errors: [],
+      syncedSources: 1,
+    };
+  };
+
+  const app = mount(
+    t,
+    createEmptyBoard(),
+    undefined,
+    VIEWPORT,
+    undefined,
+    fakeSourceService(sync, [
+      sourceConfig({ sourceName: 'scheduled', refreshMinutes: 0.001 }),
+    ]),
+  );
+
+  await delay(350);
+
+  assert.ok(calls >= 1);
+  assert.match(
+    frame(app),
+    /Imported 1 new task from “scheduled”\./,
+  );
+  assert.match(frame(app), /Imported task/);
 });
 
 test('explains when no task sources are configured', async (t) => {

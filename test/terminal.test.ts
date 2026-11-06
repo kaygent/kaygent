@@ -98,6 +98,32 @@ test('spawns, focuses, and closes wezterm panes', () => {
   assert.deepEqual(calls.at(-1)?.args, ['cli', 'kill-pane', '--pane-id', '17']);
 });
 
+test('runs arbitrary commands in a terminal tab', () => {
+  const calls: Array<{ file: string; args: string[] }> = [];
+  const run: CommandRunner = (file, args) => {
+    calls.push({ file, args });
+    return args[0] === 'cli' && args[1] === 'spawn'
+      ? result('21\n')
+      : result();
+  };
+  const controller = createTerminalController(
+    settings({ provider: 'wezterm' }),
+    makeDeps({ run }),
+  );
+
+  const spawned = controller.spawnCommand(['/bin/sh', 'sync.sh'], {
+    title: 'Qanban sync · github',
+    cwd: '/repo',
+  });
+
+  assert.equal(spawned.ok, true);
+  assert.equal(spawned.session?.id, '21');
+  assert.deepEqual(calls[0], {
+    file: 'wezterm',
+    args: ['cli', 'spawn', '--cwd', '/repo', '--', '/bin/sh', 'sync.sh'],
+  });
+});
+
 test('spawns tmux windows and selects them', () => {
   const calls: Array<{ file: string; args: string[] }> = [];
   const run: CommandRunner = (file, args) => {

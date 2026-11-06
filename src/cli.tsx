@@ -151,7 +151,7 @@ async function main(): Promise<void> {
     : createTerminalController(loadedConfig.config.terminal);
   const sourceService = options.demo
     ? undefined
-    : createTaskSourceService(loadedConfig.config.taskSources);
+    : createTaskSourceService(loadedConfig.config.taskSources, { terminal });
 
   const useAltScreen =
     !options.noAlt &&
@@ -243,11 +243,7 @@ async function main(): Promise<void> {
         saveBoard={saver}
         initialNotice={initialNotice}
         terminal={terminal}
-        syncSources={
-          sourceService?.enabled
-            ? (board) => sourceService.sync(board)
-            : undefined
-        }
+        taskSources={sourceService?.enabled ? sourceService : undefined}
       />,
       {
         exitOnCtrlC: true,

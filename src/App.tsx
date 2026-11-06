@@ -27,7 +27,7 @@ import { useTerminalSize, type Viewport } from './hooks/use-terminal-size';
 import { getKeyHints } from './key-hints';
 import { computeLayout, MIN_COLUMNS, MIN_ROWS } from './layout';
 import type { Notice, SaveState } from './notice';
-import type { SourceSyncResult } from './sources';
+import type { SourceSyncResult, TaskSourceService } from './sources';
 import type { TerminalControl } from './terminal';
 import { palette, stageUi } from './theme';
 
@@ -53,7 +53,7 @@ interface AppProps {
   /** Terminal launcher/focuser. Omitted in demo mode and unit tests. */
   terminal?: TerminalControl;
   /** Pulls new tasks from configured external sources. */
-  syncSources?: (board: Board) => SourceSyncResult;
+  taskSources?: TaskSourceService;
 }
 
 function emptyCursors(): Record<Stage, number> {
@@ -80,7 +80,7 @@ export function App({
   initialNotice,
   viewport: viewportOverride,
   terminal,
-  syncSources,
+  taskSources,
 }: AppProps) {
   const viewport = useTerminalSize(viewportOverride);
   const layout = computeLayout(viewport.columns, viewport.rows);
@@ -116,8 +116,8 @@ export function App({
   saveHandler.current = saveBoard;
   const terminalControl = useRef(terminal);
   terminalControl.current = terminal;
-  const sourceSync = useRef(syncSources);
-  sourceSync.current = syncSources;
+  const sourceService = useRef(taskSources);
+  sourceService.current = taskSources;
 
   useEffect(() => {
     if (initialRender.current) {
@@ -272,9 +272,65 @@ export function App({
     return true;
   };
 
-  const syncTaskSourcesNow = () => {
-    const sync = sourceSync.current;
-    if (!sync) {
+  const applySourceOutcome = (
+    outcome: SourceSyncResult,
+    sourceName: string | undefined,
+    background: boolean,
+  ) => {
+    const currentState = playRef.current;
+    if (outcome.board !== currentState.board) {
+      commitPlay({ ...currentState, board: outcome.board });
+    }
+
+    if (background) {
+      if (outcome.errors.length > 0) {
+        setNotice({
+          text: `Source “${sourceName ?? 'unknown'}” error: ${outcome.errors
+            .map((error) => error.error)
+            .join('; ')}`,
+          tone: 'warning',
+        });
+      } else if (outcome.added.length > 0) {
+        setNotice({
+          text: `Imported ${outcome.added.length} new task${outcome.added.length === 1 ? '' : 's'} from “${sourceName}”.`,
+          tone: 'success',
+        });
+      }
+      return;
+    }
+
+    const parts: string[] = [];
+    if (outcome.added.length > 0) {
+      parts.push(
+        `Imported ${outcome.added.length} new task${outcome.added.length === 1 ? '' : 's'} into New.`,
+      );
+    } else {
+      parts.push('No new tasks found.');
+    }
+
+    if (outcome.skipped > 0) {
+      parts.push(
+        `${outcome.skipped} duplicate or invalid item${outcome.skipped === 1 ? '' : 's'} skipped.`,
+      );
+    }
+
+    if (outcome.errors.length > 0) {
+      parts.push(
+        `Source errors: ${outcome.errors
+          .map((error) => `${error.sourceName}: ${error.error}`)
+          .join('; ')}`,
+      );
+    }
+
+    setNotice({
+      text: parts.join(' '),
+      tone: outcome.errors.length > 0 ? 'warning' : 'success',
+    });
+  };
+
+  const syncTaskSourcesNow = (sourceName?: string) => {
+    const service = sourceService.current;
+    if (!service?.enabled) {
       setNotice({
         text: 'No task sources are configured. Add taskSources to config.json.',
         tone: 'info',
@@ -282,44 +338,18 @@ export function App({
       return;
     }
 
-    setNotice({ text: 'Syncing task sources…', tone: 'info' });
+    if (!sourceName) {
+      setNotice({ text: 'Syncing task sources…', tone: 'info' });
+    }
 
     // Yield once so the status line paints before a command blocks.
     setTimeout(() => {
       try {
-        const currentState = playRef.current;
-        const outcome = sync(currentState.board);
-        if (outcome.board !== currentState.board) {
-          commitPlay({ ...currentState, board: outcome.board });
-        }
-
-        const parts: string[] = [];
-        if (outcome.added.length > 0) {
-          parts.push(
-            `Imported ${outcome.added.length} new task${outcome.added.length === 1 ? '' : 's'} into New.`,
-          );
-        } else {
-          parts.push('No new tasks found.');
-        }
-
-        if (outcome.skipped > 0) {
-          parts.push(
-            `${outcome.skipped} duplicate or invalid item${outcome.skipped === 1 ? '' : 's'} skipped.`,
-          );
-        }
-
-        if (outcome.errors.length > 0) {
-          parts.push(
-            `Source errors: ${outcome.errors
-              .map((error) => `${error.sourceName}: ${error.error}`)
-              .join('; ')}`,
-          );
-        }
-
-        setNotice({
-          text: parts.join(' '),
-          tone: outcome.errors.length > 0 ? 'warning' : 'success',
-        });
+        const outcome = service.sync(
+          playRef.current.board,
+          sourceName ? { sourceName } : undefined,
+        );
+        applySourceOutcome(outcome, sourceName, Boolean(sourceName));
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         setNotice({
@@ -329,6 +359,32 @@ export function App({
       }
     }, 0);
   };
+
+  useEffect(() => {
+    const service = sourceService.current;
+    if (!service?.enabled) {
+      return;
+    }
+
+    const timers = service.sources.flatMap((source) => {
+      if (typeof source.refreshMinutes !== 'number') {
+        return [];
+      }
+
+      return [
+        setInterval(
+          () => syncTaskSourcesNow(source.sourceName),
+          Math.min(source.refreshMinutes * 60_000, 2_147_483_647),
+        ),
+      ];
+    });
+
+    return () => {
+      for (const timer of timers) {
+        clearInterval(timer);
+      }
+    };
+  }, []);
 
   const moveSelectedTo = (direction: -1 | 1) => {
     const currentState = playRef.current;

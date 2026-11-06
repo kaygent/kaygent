@@ -63,7 +63,8 @@ recommended. To explore a sample board without touching your data:
 - **Focus from the board** — press `Enter` on an Active task to jump to its
   terminal. Tasks with a live session show a `● live` marker.
 - **Task sources** — pull tasks from GitHub, Jira, Slack, Teams, Outlook,
-  Gmail, or any command that prints JSON. Press `r` to sync.
+  Gmail, or any command that prints JSON. Press `r` to sync, or refresh each
+  source on its own schedule.
 - **Create tasks** with `a`; the new task appears in New and is selected.
 - **Edit title and tags** with `e`, or jump straight to tags with `t`.
 - **Tag tasks** with as many tags as you like; tags get deterministic colors.
@@ -162,7 +163,9 @@ defaults. Invalid values are ignored with a warning shown in the footer.
       "format": "messages",
       "tags": ["github"],
       "timeoutMs": 30000,
-      "syncOnStart": true
+      "syncOnStart": true,
+      "refreshMinutes": 15,
+      "runMode": "background"
     }
   ],
   "terminal": {
@@ -223,7 +226,20 @@ shell, expects JSON on stdout, and appends new items to the New column. Press
 | `tags` | no | `[]` | Tags added to every imported task |
 | `cwd` | no | Qanban's cwd | Working directory for the command |
 | `timeoutMs` | no | `30000` | Kill the command after this many milliseconds |
-| `syncOnStart` | no | `false` | Run at startup; `r` always runs every source |
+| `syncOnStart` | no | `false` | Run once at startup; `r` always runs every source |
+| `refreshMinutes` | no | `never` | `never`, or minutes between automatic refreshes (max 10080) |
+| `runMode` | no | `background` | `background` captures stdout; `foreground` runs in a terminal tab/window |
+
+`refreshMinutes` schedules refreshes **while Qanban is open**; the first run is
+one interval after launch. `r` remains the manual sync-all shortcut, and
+`syncOnStart` is a separate one-time startup run.
+
+In `foreground` mode Qanban opens a terminal tab or window through the configured
+terminal provider (honoring `terminal.newWindow`), focuses it, runs the source
+command, waits for it to finish, reads its JSON output, and closes the tab.
+Stdout is captured to a temporary file; stderr stays visible in the tab. This is
+useful for sources that need interactive authentication. Foreground sources
+block the board until they finish or `timeoutMs` expires.
 
 Accepted output shapes:
 

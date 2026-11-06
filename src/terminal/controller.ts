@@ -789,24 +789,19 @@ export function createTerminalController(
   const provider =
     settings.provider === 'auto' ? detectProvider(deps.env) : settings.provider;
 
-  const spawn = (task: SpawnTask): TerminalResult => {
-    const cwd = settings.cwd ?? deps.cwd;
-    const rawTitle = expandTemplate(settings.title, {
-      title: task.title,
-      tags: task.tags.join(' '),
-      id: task.id,
-      cwd,
-    });
-    const title = sanitizeTitle(rawTitle) || `Qanban · ${task.title}`;
-    const tokens = resolveCommandTokens(settings.command, {
-      title: task.title,
-      tags: task.tags.join(' '),
-      id: task.id,
-      cwd,
-    });
+  const launch = (
+    tokens: string[],
+    options: { title: string; cwd?: string; task?: SpawnTask },
+  ): TerminalResult => {
+    const cwd = options.cwd ?? settings.cwd ?? deps.cwd;
+    const title = sanitizeTitle(options.title) || 'Qanban';
 
     const context: SpawnContext = {
-      task,
+      task: options.task ?? {
+        id: 'terminal-command',
+        title,
+        tags: [],
+      },
       cwd,
       title,
       tokens,
@@ -830,6 +825,34 @@ export function createTerminalController(
         return spawnProcess(context);
     }
   };
+
+  const spawn = (task: SpawnTask): TerminalResult => {
+    const cwd = settings.cwd ?? deps.cwd;
+    const rawTitle = expandTemplate(settings.title, {
+      title: task.title,
+      tags: task.tags.join(' '),
+      id: task.id,
+      cwd,
+    });
+    const title = sanitizeTitle(rawTitle) || `Qanban · ${task.title}`;
+    const tokens = resolveCommandTokens(settings.command, {
+      title: task.title,
+      tags: task.tags.join(' '),
+      id: task.id,
+      cwd,
+    });
+
+    return launch(tokens, { title, cwd, task });
+  };
+
+  const spawnCommand = (
+    command: readonly string[],
+    options: { title?: string; cwd?: string } = {},
+  ): TerminalResult =>
+    launch([...command], {
+      title: options.title ?? 'Qanban',
+      cwd: options.cwd,
+    });
 
   const focus = (session: TerminalSession): TerminalResult => {
     switch (session.provider) {
@@ -880,6 +903,7 @@ export function createTerminalController(
     pauseBehavior: settings.pauseBehavior,
     focusOnEnter: settings.focusOnEnter,
     spawn,
+    spawnCommand,
     focus,
     close,
   };
