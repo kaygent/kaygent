@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-label="Qanban icon">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="512" y2="512" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#101b2e"/>
+      <stop offset="1" stop-color="#08101f"/>
+    </linearGradient>
+    <linearGradient id="gem" x1="86" y1="86" x2="426" y2="426" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#be185d"/>
+      <stop offset="0.5" stop-color="#86198f"/>
+      <stop offset="1" stop-color="#0e7490"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+  <rect x="18" y="18" width="476" height="476" rx="96" fill="none" stroke="#263650" stroke-width="2"/>
+
+  <rect x="136" y="136" width="240" height="240" rx="44" transform="rotate(45 256 256)"
+        fill="url(#gem)" stroke="#f9a8d4" stroke-opacity="0.35" stroke-width="2"/>
+
+  <rect x="246" y="174" width="20" height="164" rx="10" fill="#f8fafc"/>
+  <circle cx="205" cy="256" r="36" fill="none" stroke="#f8fafc" stroke-width="14"/>
+  <circle cx="307" cy="256" r="36" fill="none" stroke="#f8fafc" stroke-width="14"/>
+</svg>

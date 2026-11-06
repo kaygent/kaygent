@@ -2,6 +2,11 @@
   <img src="assets/icon.svg" width="120" alt="Qanban icon">
 </p>
 
+<p align="center">
+  <a href="https://qanban.github.io/qanban/">Website</a> ·
+  <a href="https://github.com/qanban/qanban">GitHub</a>
+</p>
+
 # Qanban
 
 A polished, React-powered terminal kanban board for managing a todo list without
@@ -403,6 +408,7 @@ src/
   hooks/                terminal-size tracking
 test/                   Node test runner + ink-testing-library tests
 scripts/                esbuild and pkg build scripts
+docs/                   GitHub Pages landing page
 release/Qanban.exe      standalone Windows build
 ```
 

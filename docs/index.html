@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Qanban — terminal kanban with agent handoff</title>
+  <meta name="description" content="A keyboard-first terminal kanban board that launches your coding agent when a task goes active, pulls tasks from your inboxes, and keeps every terminal session attached.">
+  <meta name="theme-color" content="#08101f">
+  <link rel="canonical" href="https://qanban.github.io/qanban/">
+  <link rel="icon" href="./icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="./styles.css">
+  <meta property="og:title" content="Qanban — terminal kanban with agent handoff">
+  <meta property="og:description" content="A keyboard-first terminal kanban board wired to your agents and task sources.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://qanban.github.io/qanban/">
+  <meta property="og:image" content="https://qanban.github.io/qanban/icon-512.png">
+  <meta name="twitter:card" content="summary">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <header class="site-header">
+    <div class="header-inner">
+      <a class="brand" href="./" aria-label="Qanban home">
+        <img src="./icon.svg" alt="" width="34" height="34">
+        <span>Qanban</span>
+      </a>
+      <nav class="nav" aria-label="Primary">
+        <a href="#features">Features</a>
+        <a href="#sources">Task sources</a>
+        <a href="#terminals">Terminals</a>
+        <a href="#install">Install</a>
+        <a class="nav-github" href="https://github.com/qanban/qanban">GitHub <span aria-hidden="true">↗</span></a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main">
+    <section class="hero">
+      <div class="hero-copy">
+        <p class="eyebrow"><span class="dot" aria-hidden="true"></span> Terminal kanban · agent handoff</p>
+        <h1><span class="nowrap">Your task board,</span><br><span class="gradient">wired to your agents.</span></h1>
+        <p class="lede">Qanban is a keyboard-first kanban board that lives in your terminal. Move a task to Active and it opens a tab in your terminal, runs your agent, and keeps the session attached. Pause, resume, complete — the terminal follows.</p>
+        <div class="actions">
+          <a class="btn btn-primary" href="https://github.com/qanban/qanban">Get started on GitHub</a>
+          <a class="btn" href="#features">See how it works</a>
+        </div>
+        <p class="hero-meta">Apache 2.0 · Local-first · No account required</p>
+      </div>
+
+      <div class="hero-visual">
+        <div class="terminal" role="img" aria-label="Preview of the Qanban board with New, Active, Paused, and Completed columns">
+          <div class="terminal-bar">
+            <span class="lights" aria-hidden="true"><i></i><i></i><i></i></span>
+            <span class="terminal-title">Qanban · board</span>
+            <span class="terminal-save">● autosaved</span>
+          </div>
+          <div class="terminal-head">
+            <span class="brandmark">◈ QANBAN</span>
+            <span class="slash">/</span>
+            <span class="tagline">terminal kanban</span>
+          </div>
+          <div class="board-wrap">
+            <div class="board">
+              <div class="col">
+                <div class="col-head" style="--col:#38bdf8"><span>◇ NEW</span><span>2</span></div>
+                <div class="task selected" style="--col:#38bdf8">
+                  <span class="task-title">Wire up task sources</span>
+                  <span class="task-tags">#github #jira</span>
+                </div>
+                <div class="task" style="--col:#38bdf8">
+                  <span class="task-title">Write release notes</span>
+                  <span class="task-tags">#docs</span>
+                </div>
+              </div>
+              <div class="col">
+                <div class="col-head" style="--col:#fbbf24"><span>◐ ACTIVE</span><span>1</span></div>
+                <div class="task" style="--col:#fbbf24">
+                  <span class="task-title">Fix the login flow</span>
+                  <span class="task-tags">#bug <span class="live">● live</span></span>
+                </div>
+              </div>
+              <div class="col">
+                <div class="col-head" style="--col:#c084fc"><span>◑ PAUSED</span><span>1</span></div>
+                <div class="task" style="--col:#c084fc">
+                  <span class="task-title">Refactor the store</span>
+                  <span class="task-tags">#engine</span>
+                </div>
+              </div>
+              <div class="col">
+                <div class="col-head" style="--col:#34d399"><span>✓ COMPLETED</span><span>1</span></div>
+                <div class="task done" style="--col:#34d399">
+                  <span class="task-title">Sketch board layout</span>
+                  <span class="task-tags">#design</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="terminal-foot">
+            <span>· Ready. Press ? for shortcuts.</span>
+            <span class="hint">↵ focus · r sync · q quit</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="features">
+      <div class="section-head">
+        <p class="eyebrow">Workflow</p>
+        <h2>Built around the handoff.</h2>
+        <p>Qanban is not just another todo list. Each column has a job, and your terminal follows along.</p>
+      </div>
+      <div class="feature-grid">
+        <article class="feature">
+          <span class="feature-icon" aria-hidden="true">↗</span>
+          <h3>Agent handoff</h3>
+          <p>Moving to Active launches your command in a terminal tab or window and saves the session. Enter focuses it; Completed closes it.</p>
+        </article>
+        <article class="feature">
+          <span class="feature-icon cyan" aria-hidden="true">⇄</span>
+          <h3>Task sources</h3>
+          <p>Pull items from GitHub, Jira, Slack, Teams, Outlook, Gmail, or any command that prints JSON. Stable ids and deduplication are built in.</p>
+        </article>
+        <article class="feature">
+          <span class="feature-icon amber" aria-hidden="true">⌂</span>
+          <h3>Local-first</h3>
+          <p>Your board and config are plain JSON on disk. No account, no sync service, no network calls unless one of your sources makes them.</p>
+        </article>
+        <article class="feature">
+          <span class="feature-icon purple" aria-hidden="true">⌘</span>
+          <h3>Terminal-native</h3>
+          <p>Herdr, tmux, WezTerm, Windows Terminal, a process fallback, or your own custom spawn, focus, and close commands.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="section" id="sources">
+      <div class="split">
+        <div>
+          <p class="eyebrow">Task sources</p>
+          <h2>One board,<br>every inbox.</h2>
+          <p class="section-copy">A source is a command. Whatever it prints — messages or full tasks — becomes a card in New. Configure a refresh interval per source, or keep it manual. Foreground sources open a terminal tab for interactive auth and close it when they finish.</p>
+          <ul class="provider-chips" aria-label="Example task sources">
+            <li>GitHub issues</li>
+            <li>Jira</li>
+            <li>Slack</li>
+            <li>Teams</li>
+            <li>Outlook</li>
+            <li>Gmail</li>
+            <li>Any JSON command</li>
+          </ul>
+        </div>
+        <div class="code-card">
+          <div class="code-head"><span>config.json</span><span>task source</span></div>
+          <pre><code>{
+  <span class="k">"taskSources"</span>: [
+    {
+      <span class="k">"sourceName"</span>: <span class="s">"github"</span>,
+      <span class="k">"command"</span>: <span class="s">"gh issue list --json number,title,url,labels --limit 50"</span>,
+      <span class="k">"refreshMinutes"</span>: <span class="n">15</span>,
+      <span class="k">"runMode"</span>: <span class="s">"background"</span>
+    }
+  ]
+}</code></pre>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="terminals">
+      <div class="section-head">
+        <p class="eyebrow">Terminal integration</p>
+        <h2>Uses the terminal you already have.</h2>
+        <p>Qanban detects the terminal it was launched from and keeps using it. Bring your own by configuring spawn, focus, and close commands.</p>
+      </div>
+      <div class="terminal-grid">
+        <div class="terminal-card"><span class="t-name">herdr</span><span class="t-meta">tabs · panes</span></div>
+        <div class="terminal-card"><span class="t-name">tmux</span><span class="t-meta">windows</span></div>
+        <div class="terminal-card"><span class="t-name">WezTerm</span><span class="t-meta">tabs · panes</span></div>
+        <div class="terminal-card"><span class="t-name">Windows Terminal</span><span class="t-meta">tabs · windows</span></div>
+        <div class="terminal-card"><span class="t-name">process</span><span class="t-meta">fallback</span></div>
+        <div class="terminal-card"><span class="t-name">custom</span><span class="t-meta">your commands</span></div>
+      </div>
+    </section>
+
+    <section class="section" id="install">
+      <div class="install-panel">
+        <div>
+          <p class="eyebrow">Install</p>
+          <h2>Clone, install, clear the board.</h2>
+          <p class="section-copy">Qanban needs Node.js 22+ and npm. The standalone Windows build is produced by the repo's build script.</p>
+          <div class="actions">
+            <a class="btn btn-primary" href="https://github.com/qanban/qanban#readme">Read the docs</a>
+            <a class="btn" href="https://github.com/qanban/qanban">View source</a>
+          </div>
+        </div>
+        <pre class="install-code"><code>git clone https://github.com/qanban/qanban.git
+cd qanban
+npm install
+npm run build</code></pre>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <a class="brand small" href="./" aria-label="Qanban home">
+        <img src="./icon.svg" alt="" width="24" height="24">
+        <span>Qanban</span>
+      </a>
+      <p>Apache License 2.0 · Built with React 19 and Ink</p>
+      <nav aria-label="Footer">
+        <a href="https://github.com/qanban/qanban">GitHub</a>
+        <a href="https://github.com/qanban/qanban/blob/main/LICENSE">License</a>
+        <a href="https://github.com/qanban/qanban#readme">Docs</a>
+      </nav>
+    </div>
+  </footer>
+</body>
+</html>
