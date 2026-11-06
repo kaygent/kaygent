@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "tsx src/cli.tsx",
     "start": "tsx src/cli.tsx",
-    "test": "tsx --test test/board.test.ts test/store.test.ts test/layout.test.ts test/ui.test.tsx test/config.test.ts test/terminal.test.ts",
+    "test": "tsx --test test/board.test.ts test/store.test.ts test/layout.test.ts test/ui.test.tsx test/config.test.ts test/terminal.test.ts test/sources.test.ts",
     "typecheck": "tsc --noEmit",
     "bundle": "node scripts/build.mjs",
     "preview": "tsx scripts/preview.tsx 120 32",

@@ -26,7 +26,7 @@ React 19, and packaged as a standalone Windows executable.
 
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
   · Ready. Press ? for shortcuts.                                                                          ● autosaved
-  ←→ cols · ↑↓ tasks · a add · e edit · t tags · d delete · <> stage · [] reorder · ↵ focus · ? help · q quit
+  ←→ cols · ↑↓ tasks · a add · e edit · t tags · d delete · <> stage · [] reorder · ↵ focus · r sync · ? help · q quit
 ```
 
 ## Run it
@@ -62,6 +62,8 @@ recommended. To explore a sample board without touching your data:
   tab or window; Paused keeps or closes it; Completed always closes it.
 - **Focus from the board** — press `Enter` on an Active task to jump to its
   terminal. Tasks with a live session show a `● live` marker.
+- **Task sources** — pull tasks from GitHub, Jira, Slack, Teams, Outlook,
+  Gmail, or any command that prints JSON. Press `r` to sync.
 - **Create tasks** with `a`; the new task appears in New and is selected.
 - **Edit title and tags** with `e`, or jump straight to tags with `t`.
 - **Tag tasks** with as many tags as you like; tags get deterministic colors.
@@ -91,6 +93,7 @@ recommended. To explore a sample board without touching your data:
 | `<` / `>` | Move the task to the previous / next stage |
 | `Space` | Advance the task to the next stage |
 | `[` / `]` | Reorder the task up / down |
+| `r` | Sync new tasks from configured task sources |
 | `?` | Open or close the keyboard guide |
 | `q` | Quit |
 | `Esc` | Cancel an edit, close a dialog, or close the guide |
@@ -152,6 +155,16 @@ defaults. Invalid values are ignored with a warning shown in the footer.
       "color": "#22c55e"
     }
   },
+  "taskSources": [
+    {
+      "sourceName": "github",
+      "command": "gh issue list --json number,title,url,labels,createdAt --limit 50",
+      "format": "messages",
+      "tags": ["github"],
+      "timeoutMs": 30000,
+      "syncOnStart": true
+    }
+  ],
   "terminal": {
     "provider": "auto",
     "command": ["claude", "{title}"],
@@ -196,6 +209,95 @@ shell-quoted before substitution.
 The command runs with your user privileges. Treat the config file as trusted
 local configuration.
 
+### Task sources
+
+`taskSources` is an array of independent feeds. Qanban runs each command in a
+shell, expects JSON on stdout, and appends new items to the New column. Press
+`r` to sync manually; sources with `syncOnStart: true` also run once at startup.
+
+| Key | Required | Default | Meaning |
+| --- | --- | --- | --- |
+| `sourceName` | yes | — | Unique identity; also namespaces imported task ids |
+| `command` | yes | — | Shell command that prints JSON to stdout |
+| `format` | no | `auto` | `auto`, `messages`, or `tasks` |
+| `tags` | no | `[]` | Tags added to every imported task |
+| `cwd` | no | Qanban's cwd | Working directory for the command |
+| `timeoutMs` | no | `30000` | Kill the command after this many milliseconds |
+| `syncOnStart` | no | `false` | Run at startup; `r` always runs every source |
+
+Accepted output shapes:
+
+- `{ "messages": [ ... ] }` — raw messages. Qanban derives titles and ids.
+- `{ "tasks": [ ... ] }` — task objects. Every item needs `id` and `title`.
+- `{ "items": [ ... ] }` or a bare JSON array — treated as messages unless
+  `format` is `tasks`.
+
+Messages example:
+
+```json
+{
+  "messages": [
+    {
+      "id": "slack-123",
+      "text": "Can you review the deploy?\nWe need it today.",
+      "url": "https://example.slack.com/archives/...",
+      "tags": ["slack"]
+    }
+  ]
+}
+```
+
+This becomes a task titled "Can you review the deploy?" with the Slack link in
+its source metadata.
+
+Tasks example:
+
+```json
+{
+  "tasks": [
+    {
+      "id": "PROJ-42",
+      "title": "Ship the release",
+      "tags": ["jira", "release"],
+      "url": "https://jira.example.com/browse/PROJ-42",
+      "createdAt": "2026-03-01T09:00:00.000Z"
+    }
+  ]
+}
+```
+
+Common field aliases are accepted, so tools like `gh` work without a wrapper:
+
+- **id:** `id`, `uid`, `guid`, `messageId`, `message_id`, `message_id_str`,
+  `key`, `issueKey`, `issue_key`, `number`, `ts`, `message_ts`
+- **title:** `title`, `subject`, `summary`, `name`
+- **body:** `body`, `text`, `content`, `message`, `description`, `snippet`
+- **url:** `url`, `html_url`, `web_url`, `permalink`, `link`, `href`
+- **tags:** `tags`, `labels`, `tag`, `label`, `topics`; label objects with a
+  `name` are supported
+- **createdAt:** `createdAt`, `created_at`, `created`, `timestamp`, `date`
+
+#### Stable ids and deduplication
+
+- Imported task ids are `source:<sourceName>:<itemId>`.
+- Deduplication checks every task in every column, including Completed. An id
+  already present is skipped, so refreshing the board never creates duplicates.
+- Messages without an id fall back to a content hash. Editing that message then
+  produces a new task, so **provide stable ids whenever possible**.
+- `sourceName` is part of the identity. Renaming a source makes its existing
+  tasks unrecognizable, and the next sync will import them again.
+- Deleting an imported task means a later sync can import it again.
+- Within one sync, duplicate ids in the same batch are also skipped.
+
+The **messages** format is the safer default: Qanban owns id derivation and
+deduplication, and each source only needs to emit raw items. The **tasks**
+format is for feeds that already produce a deduplicated list with stable ids;
+Qanban still namespaces those ids and skips ones already on the board as a
+safety net.
+
+Source commands run with your user privileges. A failing source does not block
+the others; invalid items are skipped and reported in the footer.
+
 ## Where data is stored
 
 Qanban saves automatically to:
@@ -206,7 +308,8 @@ Qanban saves automatically to:
 
 The board is plain JSON, so it is easy to back up or inspect. Active tasks also
 store a small `session` object with the provider handle used to focus or close
-their terminal. If the file is corrupt, Qanban moves it aside as
+their terminal. Imported tasks store a `source` object with their source name,
+item id, and URL. If the file is corrupt, Qanban moves it aside as
 `board.json.corrupt-<timestamp>` and starts a fresh board. Missing or invalid
 task entries are skipped while valid entries are kept.
 
@@ -276,7 +379,8 @@ src/
   App.tsx               board state, keyboard handling, dialogs
   board.ts              pure task/board operations
   store.ts              JSON persistence and validation
-  config.ts             column and terminal configuration
+  config.ts             column, terminal, and task-source configuration
+  sources.ts            task-source commands, conversion, and deduplication
   layout.ts             responsive dimensions and card scrolling
   terminal/             provider adapters, command templates, sessions
   components/           header, board, cards, forms, help, footer

@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { STAGE_IDS, type Stage } from './board';
+import { parseTags, STAGE_IDS, type Stage } from './board';
 import { defaultDataDirectory } from './store';
 import type { StageUiOverrides } from './theme';
 
@@ -15,6 +15,22 @@ export const TERMINAL_PROVIDERS = [
 ] as const;
 
 export type TerminalProvider = (typeof TERMINAL_PROVIDERS)[number];
+
+export const SOURCE_FORMATS = ['auto', 'tasks', 'messages'] as const;
+
+export type SourceFormat = (typeof SOURCE_FORMATS)[number];
+
+export interface TaskSourceSettings {
+  /** Unique name used to namespace imported task ids. */
+  sourceName: string;
+  /** Shell command that prints JSON to stdout. */
+  command: string;
+  format: SourceFormat;
+  tags: string[];
+  cwd?: string;
+  timeoutMs: number;
+  syncOnStart: boolean;
+}
 
 export interface CustomTerminalCommands {
   spawn: string;
@@ -36,6 +52,7 @@ export interface TerminalSettings {
 export interface QanbanConfig {
   columns: StageUiOverrides;
   terminal: TerminalSettings;
+  taskSources: TaskSourceSettings[];
 }
 
 export interface LoadedConfig {
@@ -47,6 +64,7 @@ export interface LoadedConfig {
 
 export const DEFAULT_CONFIG: QanbanConfig = {
   columns: {},
+  taskSources: [],
   terminal: {
     provider: 'auto',
     command: ['claude', '{title}'],
@@ -159,6 +177,109 @@ function readCommand(value: unknown, warnings: string[]): string[] | undefined {
   return undefined;
 }
 
+function parseTaskSources(
+  value: unknown,
+  warnings: string[],
+): TaskSourceSettings[] {
+  if (value === undefined) {
+    return [];
+  }
+
+  if (!Array.isArray(value)) {
+    warnings.push('taskSources must be an array.');
+    return [];
+  }
+
+  const sources: TaskSourceSettings[] = [];
+  const names = new Set<string>();
+
+  value.forEach((entry, index) => {
+    if (!isRecord(entry)) {
+      warnings.push(`taskSources[${index}] must be an object.`);
+      return;
+    }
+
+    if (!nonEmptyString(entry.sourceName)) {
+      warnings.push(`taskSources[${index}].sourceName is required.`);
+      return;
+    }
+
+    const sourceName = entry.sourceName.trim();
+    if (names.has(sourceName)) {
+      warnings.push(`taskSources has a duplicate sourceName "${sourceName}".`);
+      return;
+    }
+
+    if (!nonEmptyString(entry.command)) {
+      warnings.push(`taskSources[${index}].command must be a non-empty string.`);
+      return;
+    }
+
+    let format: SourceFormat = 'auto';
+    if (entry.format !== undefined) {
+      if (
+        typeof entry.format === 'string' &&
+        (SOURCE_FORMATS as readonly string[]).includes(entry.format)
+      ) {
+        format = entry.format as SourceFormat;
+      } else {
+        warnings.push(
+          `taskSources[${index}].format must be one of: ${SOURCE_FORMATS.join(', ')}.`,
+        );
+      }
+    }
+
+    const tagInput =
+      typeof entry.tags === 'string' || Array.isArray(entry.tags)
+        ? (entry.tags as string | string[])
+        : undefined;
+    const tags = parseTags(tagInput);
+
+    let cwd: string | undefined;
+    if (nonEmptyString(entry.cwd)) {
+      cwd = resolve(process.cwd(), entry.cwd.trim());
+    }
+
+    let timeoutMs = 30_000;
+    if (entry.timeoutMs !== undefined) {
+      if (
+        typeof entry.timeoutMs === 'number' &&
+        Number.isFinite(entry.timeoutMs) &&
+        entry.timeoutMs > 0 &&
+        entry.timeoutMs <= 600_000
+      ) {
+        timeoutMs = Math.floor(entry.timeoutMs);
+      } else {
+        warnings.push(
+          `taskSources[${index}].timeoutMs must be between 1 and 600000.`,
+        );
+      }
+    }
+
+    let syncOnStart = false;
+    if (entry.syncOnStart !== undefined) {
+      if (typeof entry.syncOnStart === 'boolean') {
+        syncOnStart = entry.syncOnStart;
+      } else {
+        warnings.push(`taskSources[${index}].syncOnStart must be a boolean.`);
+      }
+    }
+
+    names.add(sourceName);
+    sources.push({
+      sourceName,
+      command: entry.command.trim(),
+      format,
+      tags,
+      ...(cwd ? { cwd } : {}),
+      timeoutMs,
+      syncOnStart,
+    });
+  });
+
+  return sources;
+}
+
 export function parseConfig(value: unknown): {
   config: QanbanConfig;
   warnings: string[];
@@ -198,6 +319,8 @@ export function parseConfig(value: unknown): {
       config.columns[stage] = override;
     }
   }
+
+  config.taskSources = parseTaskSources(value.taskSources, warnings);
 
   if (!isRecord(value.terminal)) {
     return { config, warnings };

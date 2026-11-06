@@ -106,6 +106,58 @@ test('falls back safely for invalid values', () => {
   assert.match(warnings.join(' '), /pauseBehavior/);
 });
 
+test('parses task sources and warns about invalid entries', () => {
+  const { config, warnings } = parseConfig({
+    taskSources: [
+      {
+        sourceName: 'github',
+        command: 'gh issue list --json number,title',
+        format: 'messages',
+        tags: 'github, work',
+        cwd: 'repos',
+        timeoutMs: 5_000,
+        syncOnStart: true,
+      },
+      { sourceName: 'github', command: 'duplicate' },
+      {
+        sourceName: 'jira',
+        command: 'jira issue list',
+        format: 'bogus',
+        timeoutMs: 0,
+        syncOnStart: 'yes',
+      },
+      { command: 'missing name' },
+    ],
+  });
+
+  assert.equal(config.taskSources.length, 2);
+  const github = config.taskSources[0]!;
+  assert.equal(github.sourceName, 'github');
+  assert.equal(github.command, 'gh issue list --json number,title');
+  assert.equal(github.format, 'messages');
+  assert.deepEqual(github.tags, ['github', 'work']);
+  assert.equal(github.cwd, resolve(process.cwd(), 'repos'));
+  assert.equal(github.timeoutMs, 5_000);
+  assert.equal(github.syncOnStart, true);
+
+  const jira = config.taskSources[1]!;
+  assert.equal(jira.format, 'auto');
+  assert.equal(jira.timeoutMs, 30_000);
+  assert.equal(jira.syncOnStart, false);
+
+  assert.match(warnings.join(' '), /duplicate sourceName/);
+  assert.match(warnings.join(' '), /\.format must be one of/);
+  assert.match(warnings.join(' '), /\.timeoutMs must be between/);
+  assert.match(warnings.join(' '), /\.syncOnStart must be a boolean/);
+  assert.match(warnings.join(' '), /\.sourceName is required/);
+});
+
+test('rejects a non-array taskSources value', () => {
+  const { config, warnings } = parseConfig({ taskSources: 'github' });
+  assert.deepEqual(config.taskSources, []);
+  assert.match(warnings.join(' '), /taskSources must be an array/);
+});
+
 test('applies column appearance overrides', () => {
   const before = Object.fromEntries(
     STAGE_IDS.map((stage) => [stage, { ...stageUi[stage] }]),

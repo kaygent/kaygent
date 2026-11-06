@@ -4,6 +4,14 @@ import type { TerminalSession } from './terminal/types';
 export const STAGE_IDS = ['new', 'active', 'paused', 'completed'] as const;
 export type Stage = (typeof STAGE_IDS)[number];
 
+export interface TaskSourceRef {
+  /** Configured source that produced this task. */
+  sourceName: string;
+  /** Stable id supplied by the source, or a content hash when it had none. */
+  itemId: string;
+  url?: string;
+}
+
 export interface Task {
   id: string;
   title: string;
@@ -12,6 +20,8 @@ export interface Task {
   updatedAt: string;
   /** Terminal session spawned when this task entered Active. */
   session?: TerminalSession;
+  /** Original source item for tasks imported from a task source. */
+  source?: TaskSourceRef;
 }
 
 export type TaskColumns = Record<Stage, Task[]>;

@@ -32,6 +32,7 @@ const sections: ShortcutSection[] = [
       ['e', 'edit task'],
       ['t', 'edit tags'],
       ['d', 'delete task'],
+      ['r', 'sync sources'],
     ],
   },
   {

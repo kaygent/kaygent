@@ -3,6 +3,7 @@ import { basename } from 'node:path';
 import { App } from './App';
 import { defaultConfigFile, loadConfig } from './config';
 import { createDemoBoard } from './demo';
+import { createTaskSourceService } from './sources';
 import { defaultDataFile, loadBoard, saveBoard } from './store';
 import { runSelfTest } from './selftest';
 import { createTerminalController } from './terminal';
@@ -85,6 +86,7 @@ function helpText(): string {
     '  d / Delete     delete the selected task',
     '  < / > / Space  move a task between columns',
     '  [ / ]          reorder a task up or down',
+    '  r              sync new tasks from configured sources',
     '  ?              open the keyboard guide',
     '  q              quit',
     '',
@@ -93,7 +95,7 @@ function helpText(): string {
     `  ${defaultDataFile()}`,
     '',
     'CONFIG',
-    '  Columns and terminal integration are configured in:',
+    '  Columns, terminal integration, and task sources are configured in:',
     `  ${defaultConfigFile()}`,
     '',
     '  Set QANBAN_DATA_FILE to use a specific board file, or',
@@ -147,6 +149,9 @@ async function main(): Promise<void> {
   const terminal = options.demo
     ? undefined
     : createTerminalController(loadedConfig.config.terminal);
+  const sourceService = options.demo
+    ? undefined
+    : createTaskSourceService(loadedConfig.config.taskSources);
 
   const useAltScreen =
     !options.noAlt &&
@@ -183,18 +188,53 @@ async function main(): Promise<void> {
       };
     } else {
       const loaded = loadBoard();
-      initialBoard = loaded.board;
-      saver = (board) => saveBoard(board, loaded.filePath);
+      let board = loaded.board;
       const warnings = [loadedConfig.warning, loaded.warning].filter(
         (value): value is string => Boolean(value),
       );
+      let syncNote = '';
+
+      if (sourceService?.enabled) {
+        try {
+          const outcome = sourceService.sync(board, { startupOnly: true });
+          board = outcome.board;
+
+          if (outcome.added.length > 0) {
+            try {
+              saveBoard(board, loaded.filePath);
+            } catch (error) {
+              const message =
+                error instanceof Error ? error.message : String(error);
+              warnings.push(`Could not save imported tasks: ${message}`);
+            }
+            syncNote = `Imported ${outcome.added.length} new task${outcome.added.length === 1 ? '' : 's'} from task sources.`;
+          }
+
+          if (outcome.errors.length > 0) {
+            warnings.push(
+              `Task sources: ${outcome.errors
+                .map((error) => `${error.sourceName}: ${error.error}`)
+                .join('; ')}`,
+            );
+          }
+        } catch (error) {
+          const message =
+            error instanceof Error ? error.message : String(error);
+          warnings.push(`Could not sync task sources: ${message}`);
+        }
+      }
+
+      initialBoard = board;
+      saver = (saved) => saveBoard(saved, loaded.filePath);
       initialNotice =
         warnings.length > 0
           ? {
-              text: warnings.join(' '),
+              text: [syncNote, ...warnings].filter(Boolean).join(' '),
               tone: 'warning' as const,
             }
-          : undefined;
+          : syncNote
+            ? { text: syncNote, tone: 'success' as const }
+            : undefined;
     }
 
     const instance = render(
@@ -203,6 +243,11 @@ async function main(): Promise<void> {
         saveBoard={saver}
         initialNotice={initialNotice}
         terminal={terminal}
+        syncSources={
+          sourceService?.enabled
+            ? (board) => sourceService.sync(board)
+            : undefined
+        }
       />,
       {
         exitOnCtrlC: true,

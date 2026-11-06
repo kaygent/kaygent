@@ -27,6 +27,7 @@ import { useTerminalSize, type Viewport } from './hooks/use-terminal-size';
 import { getKeyHints } from './key-hints';
 import { computeLayout, MIN_COLUMNS, MIN_ROWS } from './layout';
 import type { Notice, SaveState } from './notice';
+import type { SourceSyncResult } from './sources';
 import type { TerminalControl } from './terminal';
 import { palette, stageUi } from './theme';
 
@@ -51,6 +52,8 @@ interface AppProps {
   viewport?: Viewport;
   /** Terminal launcher/focuser. Omitted in demo mode and unit tests. */
   terminal?: TerminalControl;
+  /** Pulls new tasks from configured external sources. */
+  syncSources?: (board: Board) => SourceSyncResult;
 }
 
 function emptyCursors(): Record<Stage, number> {
@@ -77,6 +80,7 @@ export function App({
   initialNotice,
   viewport: viewportOverride,
   terminal,
+  syncSources,
 }: AppProps) {
   const viewport = useTerminalSize(viewportOverride);
   const layout = computeLayout(viewport.columns, viewport.rows);
@@ -112,6 +116,8 @@ export function App({
   saveHandler.current = saveBoard;
   const terminalControl = useRef(terminal);
   terminalControl.current = terminal;
+  const sourceSync = useRef(syncSources);
+  sourceSync.current = syncSources;
 
   useEffect(() => {
     if (initialRender.current) {
@@ -264,6 +270,64 @@ export function App({
     }
 
     return true;
+  };
+
+  const syncTaskSourcesNow = () => {
+    const sync = sourceSync.current;
+    if (!sync) {
+      setNotice({
+        text: 'No task sources are configured. Add taskSources to config.json.',
+        tone: 'info',
+      });
+      return;
+    }
+
+    setNotice({ text: 'Syncing task sources…', tone: 'info' });
+
+    // Yield once so the status line paints before a command blocks.
+    setTimeout(() => {
+      try {
+        const currentState = playRef.current;
+        const outcome = sync(currentState.board);
+        if (outcome.board !== currentState.board) {
+          commitPlay({ ...currentState, board: outcome.board });
+        }
+
+        const parts: string[] = [];
+        if (outcome.added.length > 0) {
+          parts.push(
+            `Imported ${outcome.added.length} new task${outcome.added.length === 1 ? '' : 's'} into New.`,
+          );
+        } else {
+          parts.push('No new tasks found.');
+        }
+
+        if (outcome.skipped > 0) {
+          parts.push(
+            `${outcome.skipped} duplicate or invalid item${outcome.skipped === 1 ? '' : 's'} skipped.`,
+          );
+        }
+
+        if (outcome.errors.length > 0) {
+          parts.push(
+            `Source errors: ${outcome.errors
+              .map((error) => `${error.sourceName}: ${error.error}`)
+              .join('; ')}`,
+          );
+        }
+
+        setNotice({
+          text: parts.join(' '),
+          tone: outcome.errors.length > 0 ? 'warning' : 'success',
+        });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        setNotice({
+          text: `Could not sync task sources: ${message}`,
+          tone: 'error',
+        });
+      }
+    }, 0);
   };
 
   const moveSelectedTo = (direction: -1 | 1) => {
@@ -593,6 +657,11 @@ export function App({
 
       if (input.toLowerCase() === 'q') {
         exit();
+        return;
+      }
+
+      if (input.toLowerCase() === 'r') {
+        syncTaskSourcesNow();
         return;
       }
 

@@ -89,6 +89,35 @@ test('round-trips terminal sessions on tasks', (t) => {
   });
 });
 
+test('round-trips task source metadata', (t) => {
+  const directory = tempDirectory(t);
+  const filePath = join(directory, 'board.json');
+  const board = createEmptyBoard();
+  board.columns.new = [
+    {
+      id: 'source:github:42',
+      title: 'Imported issue',
+      tags: ['github'],
+      createdAt: NOW.toISOString(),
+      updatedAt: NOW.toISOString(),
+      source: {
+        sourceName: 'github',
+        itemId: '42',
+        url: 'https://github.com/acme/app/issues/42',
+      },
+    },
+  ];
+
+  saveBoard(board, filePath);
+  const loaded = loadBoard(filePath);
+
+  assert.deepEqual(loaded.board.columns.new[0]?.source, {
+    sourceName: 'github',
+    itemId: '42',
+    url: 'https://github.com/acme/app/issues/42',
+  });
+});
+
 test('migrates legacy inprogress columns to paused', (t) => {
   const directory = tempDirectory(t);
   const filePath = join(directory, 'board.json');

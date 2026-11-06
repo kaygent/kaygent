@@ -17,6 +17,7 @@ import {
   type Board,
   type Stage,
   type Task,
+  type TaskSourceRef,
 } from './board';
 import type { TerminalSession } from './terminal/types';
 
@@ -96,6 +97,28 @@ function normalizeSession(value: unknown): TerminalSession | undefined {
   return session;
 }
 
+function normalizeSource(value: unknown): TaskSourceRef | undefined {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return undefined;
+  }
+
+  const candidate = value as Record<string, unknown>;
+  if (!nonEmptyString(candidate.sourceName) || !nonEmptyString(candidate.itemId)) {
+    return undefined;
+  }
+
+  const source: TaskSourceRef = {
+    sourceName: candidate.sourceName.trim(),
+    itemId: candidate.itemId.trim(),
+  };
+
+  if (nonEmptyString(candidate.url)) {
+    source.url = candidate.url.trim();
+  }
+
+  return source;
+}
+
 function normalizeTask(
   value: unknown,
   now: string,
@@ -132,6 +155,11 @@ function normalizeTask(
   const session = normalizeSession(candidate.session);
   if (session) {
     task.session = session;
+  }
+
+  const source = normalizeSource(candidate.source);
+  if (source) {
+    task.source = source;
   }
 
   return task;
@@ -285,6 +313,15 @@ export function serializeBoard(board: Board): string {
                   ? { windowName: task.session.windowName }
                   : {}),
                 createdAt: task.session.createdAt,
+              },
+            }
+          : {}),
+        ...(task.source
+          ? {
+              source: {
+                sourceName: task.source.sourceName,
+                itemId: task.source.itemId,
+                ...(task.source.url ? { url: task.source.url } : {}),
               },
             }
           : {}),

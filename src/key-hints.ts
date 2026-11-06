@@ -1,14 +1,14 @@
 export type ModalKind = 'add' | 'edit' | 'delete' | 'help';
 
 const hints = {
-  full: '←→ columns · ↑↓ tasks · a add · e edit · t tags · d delete · < > stage · [ ] reorder · Space advance · ↵ focus · ? help · q quit',
+  full: '←→ columns · ↑↓ tasks · a add · e edit · t tags · d delete · < > stage · [ ] reorder · Space advance · ↵ focus · r sync · ? help · q quit',
   medium:
-    '←→ cols · ↑↓ tasks · a add · e edit · t tags · d delete · <> stage · [] reorder · ↵ focus · ? help · q quit',
+    '←→ cols · ↑↓ tasks · a add · e edit · t tags · d delete · <> stage · [] reorder · ↵ focus · r sync · ? help · q quit',
   compact:
-    '←→↑↓ nav · a add · e edit · t tags · d delete · <> stage · [] reorder · ↵ focus · ? help',
+    '←→↑↓ nav · a add · e edit · t tags · d delete · <> stage · [] reorder · ↵ focus · r sync · ? help',
   narrow:
-    '←→↑↓ nav · a add · e edit · d del · <> stage · [] reorder · ↵ focus · ? help',
-  tiny: '←→↑↓ nav · a add · e edit · d del · <> stage · ↵ focus · ? help',
+    '←→↑↓ nav · a add · e edit · d del · <> stage · [] reorder · ↵ focus · r sync · ? help',
+  tiny: '←→↑↓ nav · a add · e edit · d del · <> stage · ↵ focus · r sync · ? help',
   form: 'Tab / ↑↓  switch field  ·  Enter save  ·  Esc cancel',
   delete: 'y / Enter  delete  ·  n / Esc  cancel',
   help: 'Esc / ?  close help',

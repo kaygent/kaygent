@@ -4,6 +4,7 @@ import { render } from 'ink-testing-library';
 import React from 'react';
 import { App } from '../src/App';
 import { addTask, createEmptyBoard, type Board } from '../src/board';
+import type { SourceSyncResult } from '../src/sources';
 import type {
   SpawnTask,
   TerminalControl,
@@ -59,6 +60,7 @@ function mount(
   saveBoard?: (next: Board) => void,
   viewport = VIEWPORT,
   terminal?: TerminalControl,
+  syncSources?: (board: Board) => SourceSyncResult,
 ): ReturnType<typeof render> {
   const app = render(
     <App
@@ -66,6 +68,7 @@ function mount(
       saveBoard={saveBoard}
       viewport={viewport}
       terminal={terminal}
+      syncSources={syncSources}
       initialNotice={{ text: 'Test board', tone: 'info' }}
     />,
   );
@@ -435,4 +438,98 @@ test('Enter edits an active task that has no session', async (t) => {
   await press(app, '2');
   await press(app, '\r');
   assert.match(frame(app), /EDIT TASK/);
+});
+
+function importedTask() {
+  return {
+    id: 'source:test:1',
+    title: 'Imported task',
+    tags: ['github'],
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z',
+    source: { sourceName: 'test', itemId: '1' },
+  };
+}
+
+test('syncs task sources with r and adds new tasks', async (t) => {
+  const saves: Board[] = [];
+  const imported = importedTask();
+  const sync = (board: Board): SourceSyncResult => ({
+    board: {
+      ...board,
+      columns: {
+        ...board.columns,
+        new: [...board.columns.new, imported],
+      },
+    },
+    added: [imported],
+    skipped: 0,
+    errors: [],
+    syncedSources: 1,
+  });
+
+  const app = mount(
+    t,
+    createEmptyBoard(),
+    (next) => saves.push(next),
+    VIEWPORT,
+    undefined,
+    sync,
+  );
+
+  await press(app, 'r');
+  await delay(100);
+
+  assert.match(frame(app), /Imported 1 new task into New\./);
+  assert.match(frame(app), /Imported task/);
+  assert.equal(saves.at(-1)?.columns.new[0]?.id, 'source:test:1');
+});
+
+test('reports duplicate and invalid source items', async (t) => {
+  const sync = (board: Board): SourceSyncResult => ({
+    board,
+    added: [],
+    skipped: 2,
+    errors: [],
+    syncedSources: 1,
+  });
+  const app = mount(
+    t,
+    createEmptyBoard(),
+    undefined,
+    VIEWPORT,
+    undefined,
+    sync,
+  );
+
+  await press(app, 'r');
+  assert.match(frame(app), /No new tasks found\./);
+  assert.match(frame(app), /2 duplicate or invalid items skipped\./);
+});
+
+test('reports source command errors', async (t) => {
+  const sync = (board: Board): SourceSyncResult => ({
+    board,
+    added: [],
+    skipped: 0,
+    errors: [{ sourceName: 'github', error: 'command failed: boom' }],
+    syncedSources: 1,
+  });
+  const app = mount(
+    t,
+    createEmptyBoard(),
+    undefined,
+    VIEWPORT,
+    undefined,
+    sync,
+  );
+
+  await press(app, 'r');
+  assert.match(frame(app), /Source errors: github: command failed: boom/);
+});
+
+test('explains when no task sources are configured', async (t) => {
+  const app = mount(t, createEmptyBoard());
+  await press(app, 'r');
+  assert.match(frame(app), /No task sources are configured\./);
 });
