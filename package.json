@@ -10,8 +10,10 @@
     "typecheck": "tsc --noEmit",
     "bundle": "node scripts/build.mjs",
     "preview": "tsx scripts/preview.tsx 120 32",
-    "build:exe": "node scripts/build.mjs && node scripts/package-exe.mjs",
-    "build": "npm run typecheck && npm test && npm run build:exe"
+    "build:exe": "node scripts/build.mjs && node scripts/package-binaries.mjs --platform win",
+    "build:linux": "node scripts/build.mjs && node scripts/package-binaries.mjs --platform linux",
+    "build:binaries": "node scripts/build.mjs && node scripts/package-binaries.mjs --platform all",
+    "build": "npm run typecheck && npm test && npm run build:binaries"
   },
   "keywords": [
     "todo",

@@ -11,7 +11,7 @@
 
 A polished, React-powered terminal kanban board for managing a todo list without
 leaving the terminal. Built with [Ink](https://github.com/vadimdemedes/ink) and
-React 19, and packaged as a standalone Windows executable.
+React 19, and packaged as standalone Windows and Linux executables.
 
 ```text
   ◈ KAYGENT  /  terminal kanban                                                          Sun, 1 Nov   7 open  ·  2 done
@@ -36,28 +36,43 @@ React 19, and packaged as a standalone Windows executable.
 
 ## Run it
 
-The standalone build is included at:
+Prebuilt binaries for 64-bit Windows and Linux are attached to
+[GitHub Releases](https://github.com/kaygent/kaygent/releases/latest).
 
-```text
-release\Kaygent.exe
-```
+### Windows
 
-Double-click it, or run it from Windows Terminal / PowerShell / cmd:
-
-```powershell
-.\release\Kaygent.exe
-```
-
-The executable is self-contained — Node.js is **not** required. It targets
-64-bit Windows and needs a terminal of at least **70 × 24**. Windows Terminal is
-recommended. To explore a sample board without touching your data:
+Download `Kaygent.exe`, then double-click it or run it from Windows Terminal /
+PowerShell / cmd:
 
 ```powershell
-.\release\Kaygent.exe --demo
+.\Kaygent.exe
 ```
 
-> The executable is not code-signed, so Windows SmartScreen may show a warning
-> the first time it runs. Choose "More info → Run anyway" if you trust the binary.
+### Linux
+
+Download `Kaygent-linux-x64`, make it executable, and launch it:
+
+```bash
+chmod +x Kaygent-linux-x64
+./Kaygent-linux-x64
+```
+
+Both executables are self-contained — Node.js is **not** required. They target
+64-bit Windows and Linux and need a terminal of at least **70 × 24**. A modern
+terminal emulator is recommended. To explore a sample board without touching
+your data:
+
+```powershell
+.\Kaygent.exe --demo
+```
+
+```bash
+./Kaygent-linux-x64 --demo
+```
+
+> The binaries are not code-signed, so Windows SmartScreen may show a warning
+> the first time you run the Windows build. Choose "More info → Run anyway" if
+> you trust the binary.
 
 ## Features
 
@@ -349,7 +364,8 @@ Optional overrides:
 ## Command-line options
 
 ```text
-Kaygent.exe [options]
+Kaygent.exe [options]          # Windows
+Kaygent-linux-x64 [options]    # Linux
 
   --demo        Open a sample board; nothing is saved
   --no-alt      Draw inline instead of using the fullscreen buffer
@@ -363,23 +379,27 @@ binary is healthy.
 
 ## Build from source
 
-Requirements: Node.js 22+ and npm on Windows (the packaging tool targets a
-Windows x64 Node runtime).
+Requirements: Node.js 22+ and npm. The packaging tool cross-compiles both
+binaries, so no Windows or Linux toolchain is required beyond the Node runtime.
 
 ```powershell
 npm install
 npm run dev        # run the TypeScript source
 npm test           # domain, storage, config, terminal, layout, and UI tests
 npm run typecheck
-npm run build      # typecheck + tests + bundle + Windows executable
+npm run build      # typecheck + tests + bundle + both executables
 ```
 
-The final binary is written to `release\Kaygent.exe`. Other useful scripts:
+The final binaries are written to `release\Kaygent.exe` and
+`release/Kaygent-linux-x64`, with checksums in `release/SHA256SUMS.txt`. Other
+useful scripts:
 
 ```powershell
-npm run bundle     # create dist/cli.mjs
-npm run build:exe  # bundle and package the EXE
-npm run preview    # print a static, uncolored demo board
+npm run bundle         # create dist/cli.mjs
+npm run build:exe      # bundle and package the Windows executable
+npm run build:linux    # bundle and package the Linux executable
+npm run build:binaries # bundle and package both executables
+npm run preview        # print a static, uncolored demo board
 ```
 
 ### How it is built
@@ -387,8 +407,9 @@ npm run preview    # print a static, uncolored demo board
 - **React 19 + Ink 6** render the interactive terminal UI.
 - **TypeScript** covers the board model, persistence, layout, and UI.
 - **esbuild** bundles everything into a single ESM file.
-- **@yao-pkg/pkg** embeds that bundle with a Node 24 runtime into a Windows x64
-  executable.
+- **@yao-pkg/pkg** embeds that bundle with a stock Node 24 runtime using Node's
+  Single Executable Applications (SEA) support, producing self-contained
+  Windows x64 and Linux x64 executables.
 - The fullscreen view uses the terminal's alternate screen buffer; `--no-alt`
   keeps the rendered UI in the normal scrollback instead.
 
@@ -409,7 +430,9 @@ src/
 test/                   Node test runner + ink-testing-library tests
 scripts/                esbuild and pkg build scripts
 docs/                   GitHub Pages landing page
-release/Kaygent.exe      standalone Windows build
+release/
+  Kaygent.exe           standalone Windows build
+  Kaygent-linux-x64     standalone Linux build
 ```
 
 Long titles are truncated in narrow columns; press `e` to view and edit the full

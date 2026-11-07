@@ -135,9 +135,13 @@ async function main(): Promise<void> {
   }
 
   if (!process.stdin.isTTY || !process.stdout.isTTY) {
+    const launchHint =
+      process.platform === 'win32'
+        ? 'Open Windows Terminal (or PowerShell), run Kaygent.exe there, and try again.\n'
+        : 'Run Kaygent from an interactive terminal emulator and try again.\n';
     process.stderr.write(
       '\nKaygent needs an interactive terminal.\n' +
-        'Open Windows Terminal (or PowerShell), run Kaygent.exe there, and try again.\n' +
+        launchHint +
         'Use --help for options, or --selftest for a non-interactive check.\n\n',
     );
     process.exitCode = 1;
