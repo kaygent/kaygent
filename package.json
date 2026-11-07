@@ -1,6 +1,6 @@
 {
   "name": "kaygent",
-  "version": "1.0.0",
+  "version": "0.0.1",
   "description": "A polished React-powered terminal kanban todo manager",
   "type": "module",
   "scripts": {
