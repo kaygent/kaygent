@@ -35,18 +35,18 @@ jobs:
         run: npm run build:binaries
 
       - name: Smoke-test the Linux binary
-        run: ./release/Kaygent-linux-x64 --selftest
+        run: ./release/kaygent-linux-x64 --selftest
 
       - name: Verify the Windows binary
-        run: file release/Kaygent.exe
+        run: file release/kaygent.exe
 
       - name: Upload workflow artifacts
         uses: actions/upload-artifact@v4
         with:
           name: kaygent-binaries
           path: |
-            release/Kaygent.exe
-            release/Kaygent-linux-x64
+            release/kaygent.exe
+            release/kaygent-linux-x64
             release/SHA256SUMS.txt
 
       - name: Publish GitHub release
@@ -54,7 +54,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            release/Kaygent.exe
-            release/Kaygent-linux-x64
+            release/kaygent.exe
+            release/kaygent-linux-x64
             release/SHA256SUMS.txt
           generate_release_notes: true

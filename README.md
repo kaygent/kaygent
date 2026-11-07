@@ -41,20 +41,20 @@ Prebuilt binaries for 64-bit Windows and Linux are attached to
 
 ### Windows
 
-Download `Kaygent.exe`, then double-click it or run it from Windows Terminal /
+Download `kaygent.exe`, then double-click it or run it from Windows Terminal /
 PowerShell / cmd:
 
 ```powershell
-.\Kaygent.exe
+.\kaygent.exe
 ```
 
 ### Linux
 
-Download `Kaygent-linux-x64`, make it executable, and launch it:
+Download `kaygent-linux-x64`, make it executable, and launch it:
 
 ```bash
-chmod +x Kaygent-linux-x64
-./Kaygent-linux-x64
+chmod +x kaygent-linux-x64
+./kaygent-linux-x64
 ```
 
 Both executables are self-contained — Node.js is **not** required. They target
@@ -63,11 +63,11 @@ terminal emulator is recommended. To explore a sample board without touching
 your data:
 
 ```powershell
-.\Kaygent.exe --demo
+.\kaygent.exe --demo
 ```
 
 ```bash
-./Kaygent-linux-x64 --demo
+./kaygent-linux-x64 --demo
 ```
 
 > The binaries are not code-signed, so Windows SmartScreen may show a warning
@@ -364,8 +364,8 @@ Optional overrides:
 ## Command-line options
 
 ```text
-Kaygent.exe [options]          # Windows
-Kaygent-linux-x64 [options]    # Linux
+kaygent.exe [options]          # Windows
+kaygent-linux-x64 [options]    # Linux
 
   --demo        Open a sample board; nothing is saved
   --no-alt      Draw inline instead of using the fullscreen buffer
@@ -390,8 +390,8 @@ npm run typecheck
 npm run build      # typecheck + tests + bundle + both executables
 ```
 
-The final binaries are written to `release\Kaygent.exe` and
-`release/Kaygent-linux-x64`, with checksums in `release/SHA256SUMS.txt`. Other
+The final binaries are written to `release\kaygent.exe` and
+`release/kaygent-linux-x64`, with checksums in `release/SHA256SUMS.txt`. Other
 useful scripts:
 
 ```powershell
@@ -431,8 +431,8 @@ test/                   Node test runner + ink-testing-library tests
 scripts/                esbuild and pkg build scripts
 docs/                   GitHub Pages landing page
 release/
-  Kaygent.exe           standalone Windows build
-  Kaygent-linux-x64     standalone Linux build
+  kaygent.exe           standalone Windows build
+  kaygent-linux-x64     standalone Linux build
 ```
 
 Long titles are truncated in narrow columns; press `e` to view and edit the full

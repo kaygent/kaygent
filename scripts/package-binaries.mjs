@@ -23,12 +23,12 @@ const TARGETS = {
   win: {
     label: 'Windows x64',
     pkgTarget: 'node24-win-x64',
-    output: 'Kaygent.exe',
+    output: 'kaygent.exe',
   },
   linux: {
     label: 'Linux x64',
     pkgTarget: 'node24-linux-x64',
-    output: 'Kaygent-linux-x64',
+    output: 'kaygent-linux-x64',
   },
 };
 
