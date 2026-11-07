@@ -334,11 +334,18 @@ function spawnHerdr(context: SpawnContext): TerminalResult {
       };
     }
 
+    // `pane run` types the command into the pane's shell. Herdr panes use
+    // PowerShell on Windows, where adjacent quoted words need the call
+    // operator; POSIX quoting there is a parse error.
+    const commandLine =
+      deps.platform === 'win32'
+        ? `& ${tokens.map(powershellQuote).join(' ')}`
+        : buildShellCommand(tokens, 'posix');
     const run = deps.run('herdr', [
       'pane',
       'run',
       paneId,
-      buildShellCommand(tokens, 'posix'),
+      commandLine,
     ]);
     if (run.error || run.status !== 0) {
       deps.run('herdr', ['tab', 'close', tabId]);

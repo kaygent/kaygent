@@ -218,6 +218,43 @@ test('creates herdr tabs, runs the agent, and closes by tab id', () => {
   assert.deepEqual(calls.at(-1), ['tab', 'close', 'w1:t2']);
 });
 
+test('quotes herdr pane commands for PowerShell on Windows', () => {
+  const calls: string[][] = [];
+  const run: CommandRunner = (_file, args) => {
+    calls.push(args);
+    if (args[0] === 'tab' && args[1] === 'create') {
+      return result(
+        JSON.stringify({
+          ok: true,
+          result: {
+            tab: { tab_id: 'w1:t2' },
+            root_pane: { pane_id: 'w1:p3' },
+          },
+        }),
+      );
+    }
+    return result();
+  };
+  const deps = makeDeps({
+    run,
+    platform: 'win32',
+    env: { HERDR_ENV: '1' },
+  });
+  const controller = createTerminalController(
+    settings({ provider: 'herdr' }),
+    deps,
+  );
+
+  const spawned = controller.spawn(task);
+  assert.equal(spawned.ok, true);
+  assert.deepEqual(calls[1], [
+    'pane',
+    'run',
+    'w1:p3',
+    "& 'claude' 'Fix login'",
+  ]);
+});
+
 test('spawns, focuses, and closes herdr-core terminals', () => {
   const calls: Array<{ file: string; args: string[] }> = [];
   const run: CommandRunner = (file, args) => {
