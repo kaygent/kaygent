@@ -77,6 +77,11 @@ const defaultDeps: TerminalDeps = {
 export function detectProvider(
   env: NodeJS.ProcessEnv,
 ): Exclude<TerminalProvider, 'auto'> {
+  // herdr-core (the Herdr desktop app's terminal layer) identifies itself with
+  // HC_TERMINAL_ID. The older herdr multiplexer uses the HERDR_* variables.
+  if (env.HC_TERMINAL_ID) {
+    return 'herdr-core';
+  }
   if (env.HERDR_ENV === '1' || env.HERDR_PANE_ID) {
     return 'herdr';
   }
@@ -368,6 +373,156 @@ function closeHerdr(session: TerminalSession, deps: TerminalDeps): TerminalResul
   return result.error || result.status !== 0
     ? failure('herdr close failed', result)
     : { ok: true };
+}
+
+function herdrCoreName(title: string, id: string): string {
+  const slug = title
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 20);
+  const suffix =
+    id
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, '')
+      .slice(0, 10) || 'task';
+  return `${slug || 'kaygent'}-${suffix}`.slice(0, 32) || 'kaygent';
+}
+
+/**
+ * hc terminals stay hidden from the Herdr window unless they carry a
+ * `herdr.space` label. Find the space that owns the pane Kaygent runs in so
+ * new task tabs appear beside it.
+ */
+function herdrCoreSpace(
+  terminalId: string | undefined,
+  deps: TerminalDeps,
+): string | undefined {
+  if (!terminalId) {
+    return undefined;
+  }
+
+  const listed = deps.run('herdr-app', ['ls'], { timeoutMs: 5_000 });
+  if (listed.error || listed.status !== 0) {
+    return undefined;
+  }
+
+  const parsed = parseJsonLoose(listed.stdout) as
+    | { spaces?: unknown }
+    | undefined;
+  if (!Array.isArray(parsed?.spaces)) {
+    return undefined;
+  }
+
+  for (const space of parsed.spaces) {
+    if (!space || typeof space !== 'object') {
+      continue;
+    }
+    const record = space as { id?: unknown; tabs?: unknown };
+    if (typeof record.id !== 'string' || !Array.isArray(record.tabs)) {
+      continue;
+    }
+    for (const tab of record.tabs) {
+      const terminals = (tab as { terminals?: unknown } | undefined)?.terminals;
+      if (
+        Array.isArray(terminals) &&
+        terminals.some(
+          (terminal) =>
+            (terminal as { terminal?: unknown } | undefined)?.terminal ===
+            terminalId,
+        )
+      ) {
+        return record.id;
+      }
+    }
+  }
+
+  return undefined;
+}
+
+function spawnHerdrCore(context: SpawnContext): TerminalResult {
+  const { deps, tokens, cwd, title, task } = context;
+  // spawnCommand() has no task id, so give each foreground source run a
+  // distinct hc name to avoid clashing with other live terminals.
+  const nameId =
+    task.id === 'terminal-command' ? deps.nextId() : task.id;
+  const space = herdrCoreSpace(deps.env.HC_TERMINAL_ID, deps);
+
+  const args = [
+    'run',
+    '--bg',
+    '--json',
+    '--name',
+    herdrCoreName(title, nameId),
+    '--cwd',
+    cwd,
+  ];
+
+  if (space) {
+    args.push('--label', `herdr.space=${space}`);
+  }
+
+  // Default hc children die with whoever started them and receive notes typed
+  // into the parent terminal, which is Kaygent's Ink UI. Task terminals must
+  // outlive the board and are reattached by address after a restart.
+  args.push('--no-parent', '--no-notify');
+
+  if (tokens.length > 0) {
+    args.push('--', ...tokens);
+  }
+
+  const result = deps.run('hc', args, { timeoutMs: 20_000 });
+  if (result.error || result.status !== 0) {
+    return failure('herdr-core launch failed', result);
+  }
+
+  const parsed = parseJsonLoose(result.stdout);
+  const address =
+    findString(parsed, 'address') ?? lastNonEmptyLine(result.stdout);
+  if (!address) {
+    return {
+      ok: false,
+      error: 'herdr-core did not report a terminal address.',
+    };
+  }
+
+  return {
+    ok: true,
+    session: makeSession('herdr-core', address, title, deps),
+  };
+}
+
+function focusHerdrCore(
+  session: TerminalSession,
+  deps: TerminalDeps,
+): TerminalResult {
+  if (providerMismatch(session, 'herdr-core')) {
+    return { ok: false, error: 'Session was not created by herdr-core.' };
+  }
+  const result = deps.run(
+    'herdr-app',
+    ['do', 'pane.focus', '--terminal', session.id],
+    { timeoutMs: 10_000 },
+  );
+  return result.error || result.status !== 0
+    ? failure('herdr-core focus failed', result)
+    : { ok: true };
+}
+
+function closeHerdrCore(
+  session: TerminalSession,
+  deps: TerminalDeps,
+): TerminalResult {
+  if (providerMismatch(session, 'herdr-core')) {
+    return { ok: false, error: 'Session was not created by herdr-core.' };
+  }
+  const killed = deps.run('hc', ['kill', session.id], { timeoutMs: 15_000 });
+  // A program that already exited is only cleaned up by removing its terminal.
+  const removed = deps.run('hc', ['rm', session.id], { timeoutMs: 15_000 });
+  const closed =
+    (!killed.error && killed.status === 0) ||
+    (!removed.error && removed.status === 0);
+  return closed ? { ok: true } : failure('herdr-core close failed', killed);
 }
 
 function powershellCommand(script: string): string {
@@ -816,6 +971,8 @@ export function createTerminalController(
         return spawnTmux(context);
       case 'herdr':
         return spawnHerdr(context);
+      case 'herdr-core':
+        return spawnHerdrCore(context);
       case 'wt':
         return spawnWindowsTerminal(context);
       case 'custom':
@@ -862,6 +1019,8 @@ export function createTerminalController(
         return focusTmux(session, deps);
       case 'herdr':
         return focusHerdr(session, deps);
+      case 'herdr-core':
+        return focusHerdrCore(session, deps);
       case 'wt':
         return focusWindowsTerminal(session, deps);
       case 'custom':
@@ -884,6 +1043,8 @@ export function createTerminalController(
         return closeTmux(session, deps);
       case 'herdr':
         return closeHerdr(session, deps);
+      case 'herdr-core':
+        return closeHerdrCore(session, deps);
       case 'wt':
         return closeWindowsTerminal(session, deps);
       case 'custom':

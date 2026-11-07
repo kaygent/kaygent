@@ -9,6 +9,7 @@ export const TERMINAL_PROVIDERS = [
   'wezterm',
   'tmux',
   'herdr',
+  'herdr-core',
   'wt',
   'process',
   'custom',

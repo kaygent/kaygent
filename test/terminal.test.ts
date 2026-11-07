@@ -47,6 +47,16 @@ const task = { id: 'task-1', title: 'Fix login', tags: ['work'] };
 test('detects the terminal that launched Kaygent', () => {
   assert.equal(
     detectProvider({
+      HC_TERMINAL_ID: 't1',
+      HERDR_ENV: '1',
+      TMUX: '/tmp/tmux',
+      WEZTERM_PANE: '1',
+      WT_SESSION: 'wt',
+    }),
+    'herdr-core',
+  );
+  assert.equal(
+    detectProvider({
       HERDR_ENV: '1',
       TMUX: '/tmp/tmux',
       WEZTERM_PANE: '1',
@@ -206,6 +216,74 @@ test('creates herdr tabs, runs the agent, and closes by tab id', () => {
   assert.equal(controller.close(spawned.session!).ok, true);
   assert.deepEqual(calls.at(-2), ['tab', 'focus', 'w1:t2']);
   assert.deepEqual(calls.at(-1), ['tab', 'close', 'w1:t2']);
+});
+
+test('spawns, focuses, and closes herdr-core terminals', () => {
+  const calls: Array<{ file: string; args: string[] }> = [];
+  const run: CommandRunner = (file, args) => {
+    calls.push({ file, args });
+    if (file === 'herdr-app' && args[0] === 'ls') {
+      return result(
+        JSON.stringify({
+          spaces: [
+            {
+              id: 'sp1',
+              tabs: [{ terminals: [{ terminal: 't1' }] }],
+            },
+          ],
+        }),
+      );
+    }
+    if (file === 'hc' && args[0] === 'run') {
+      return result(JSON.stringify({ address: 't9', name: 'kaygent-fix-login-task1' }));
+    }
+    return result();
+  };
+  const deps = makeDeps({
+    run,
+    env: { HC_TERMINAL_ID: 't1', WT_SESSION: 'wt' },
+  });
+  const controller = createTerminalController(
+    settings({ provider: 'auto' }),
+    deps,
+  );
+
+  assert.equal(controller.provider, 'herdr-core');
+
+  const spawned = controller.spawn(task);
+  assert.equal(spawned.ok, true);
+  assert.equal(spawned.session?.provider, 'herdr-core');
+  assert.equal(spawned.session?.id, 't9');
+  assert.deepEqual(calls[0], { file: 'herdr-app', args: ['ls'] });
+  assert.deepEqual(calls[1], {
+    file: 'hc',
+    args: [
+      'run',
+      '--bg',
+      '--json',
+      '--name',
+      'kaygent-fix-login-task1',
+      '--cwd',
+      '/work',
+      '--label',
+      'herdr.space=sp1',
+      '--no-parent',
+      '--no-notify',
+      '--',
+      'claude',
+      'Fix login',
+    ],
+  });
+
+  assert.equal(controller.focus(spawned.session!).ok, true);
+  assert.deepEqual(calls.at(-1), {
+    file: 'herdr-app',
+    args: ['do', 'pane.focus', '--terminal', 't9'],
+  });
+
+  assert.equal(controller.close(spawned.session!).ok, true);
+  assert.deepEqual(calls.at(-2), { file: 'hc', args: ['kill', 't9'] });
+  assert.deepEqual(calls.at(-1), { file: 'hc', args: ['rm', 't9'] });
 });
 
 test('runs custom terminal command templates', () => {

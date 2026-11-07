@@ -141,12 +141,17 @@ Kaygent detects the terminal it is running inside, in this order:
 
 | Provider | Detected by | Launch | Focus | Close |
 | --- | --- | --- | --- | --- |
+| `herdr-core` | `$HC_TERMINAL_ID` | `hc run --bg` | `herdr-app pane.focus` | `hc kill` |
 | `herdr` | `HERDR_ENV`, `HERDR_PANE_ID` | `herdr tab create` + `pane run` | `tab focus` | `tab close` |
 | `tmux` | `$TMUX` | `tmux new-window` | `select-window` | `kill-window` |
 | `wezterm` | `$WEZTERM_PANE`, `$TERM_PROGRAM` | `wezterm cli spawn` | `activate-pane` | `kill-pane` |
 | `wt` | `$WT_SESSION` | `wt new-tab` | `focus-tab` / UI Automation | wrapper PID |
 | `process` | fallback | new OS terminal window | best effort | kill PID |
 | `custom` | configured | your command | your command | your command |
+
+`herdr-core` is the Herdr desktop app's terminal layer, controlled with the
+`hc` CLI; task terminals are labeled into the space Kaygent runs in so they
+appear as tabs beside it. `herdr` is the older standalone multiplexer.
 
 On Windows Terminal, opening a task in a **new window** (`newWindow: true`)
 gives the most reliable focus. Tab focus uses UI Automation, and closing kills
@@ -215,7 +220,7 @@ behavior, so they stay fixed. Their appearance is configurable through
 
 | Key | Default | Meaning |
 | --- | --- | --- |
-| `provider` | `auto` | `auto`, `herdr`, `tmux`, `wezterm`, `wt`, `process`, or `custom` |
+| `provider` | `auto` | `auto`, `herdr-core`, `herdr`, `tmux`, `wezterm`, `wt`, `process`, or `custom` |
 | `command` | `["claude", "{title}"]` | Program and arguments run in the new terminal; an empty array opens a shell |
 | `cwd` | `null` | Working directory; defaults to the directory where Kaygent was launched |
 | `title` | `Kaygent · {title}` | Terminal/tab title template |
