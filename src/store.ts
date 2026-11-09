@@ -152,6 +152,14 @@ function normalizeTask(
     updatedAt: validTimestamp(candidate.updatedAt, now),
   };
 
+  if (nonEmptyString(candidate.description)) {
+    task.description = candidate.description.trim();
+  }
+
+  if (nonEmptyString(candidate.parentId)) {
+    task.parentId = candidate.parentId.trim();
+  }
+
   const session = normalizeSession(candidate.session);
   if (session) {
     task.session = session;
@@ -297,7 +305,9 @@ export function serializeBoard(board: Board): string {
       board.columns[stage].map((task) => ({
         id: task.id,
         title: task.title,
+        ...(task.description ? { description: task.description } : {}),
         tags: task.tags,
+        ...(task.parentId ? { parentId: task.parentId } : {}),
         createdAt: task.createdAt,
         updatedAt: task.updatedAt,
         ...(task.session

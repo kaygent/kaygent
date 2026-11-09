@@ -1,5 +1,10 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import test from 'node:test';
@@ -306,6 +311,122 @@ test('service reports whether sources are configured', () => {
   assert.equal(createTaskSourceService([source()]).enabled, true);
 });
 
+test('passes every board task to sync scripts', () => {
+  let snapshot: {
+    generatedAt: string;
+    tasks: Array<{
+      id: string;
+      stage: string;
+      title: string;
+      description?: string;
+      parentId?: string;
+      source?: string;
+    }>;
+  } | undefined;
+
+  const board = createEmptyBoard();
+  board.columns.new.push({
+    id: 'task-new',
+    title: 'New task',
+    tags: [],
+    createdAt: NOW.toISOString(),
+    updatedAt: NOW.toISOString(),
+  });
+  board.columns.active.push({
+    id: 'task-active',
+    title: 'Active task',
+    description: 'Active details',
+    parentId: 'task-new',
+    tags: ['work'],
+    createdAt: NOW.toISOString(),
+    updatedAt: NOW.toISOString(),
+    source: { sourceName: 'jira', itemId: 'PROJ-1' },
+  });
+  board.columns.completed.push({
+    id: 'task-done',
+    title: 'Done task',
+    tags: [],
+    createdAt: NOW.toISOString(),
+    updatedAt: NOW.toISOString(),
+  });
+
+  const deps: SourceDeps = {
+    now: () => NOW,
+    cwd: '/work',
+    runShell: (_command, options) => {
+      const taskFile = options?.env?.KAYGENT_TASKS_FILE;
+      assert.ok(taskFile);
+      snapshot = JSON.parse(readFileSync(taskFile, 'utf8'));
+      return result(JSON.stringify([]));
+    },
+  };
+
+  syncTaskSources(board, [source()], deps);
+
+  assert.ok(snapshot);
+  assert.equal(snapshot.generatedAt, NOW.toISOString());
+  assert.deepEqual(
+    snapshot.tasks.map((task) => task.stage),
+    ['new', 'active', 'completed'],
+  );
+  const active = snapshot.tasks[1]!;
+  assert.equal(active.description, 'Active details');
+  assert.equal(active.parentId, 'task-new');
+  assert.equal(active.source, 'jira');
+});
+
+test('maps descriptions, item sources, and parent task ids', () => {
+  const payload = [
+    {
+      nativeId: 'T-1',
+      title: 'Parent task',
+      description: 'Parent details',
+      source: 'jira',
+    },
+    {
+      nativeId: 'T-2',
+      title: 'Child task',
+      parentId: 'T-1',
+      source: 'jira',
+    },
+  ];
+  const outcome = syncTaskSources(
+    createEmptyBoard(),
+    [source({ format: 'tasks' })],
+    makeDeps({ 'gh issue list': result(JSON.stringify(payload)) }).deps,
+  );
+
+  assert.equal(outcome.added.length, 2);
+  const [parent, child] = outcome.added;
+  assert.equal(parent?.id, 'source:jira:T-1');
+  assert.equal(parent?.description, 'Parent details');
+  assert.equal(parent?.source?.sourceName, 'jira');
+  assert.equal(child?.id, 'source:jira:T-2');
+  assert.equal(child?.parentId, 'source:jira:T-1');
+});
+
+test('resolves parent ids against tasks already on the board', () => {
+  const board = createEmptyBoard();
+  board.columns.completed.push({
+    id: 'source:jira:T-1',
+    title: 'Existing parent',
+    tags: [],
+    createdAt: NOW.toISOString(),
+    updatedAt: NOW.toISOString(),
+    source: { sourceName: 'jira', itemId: 'T-1' },
+  });
+  const payload = [
+    { id: 'T-2', title: 'Child', parentId: 'T-1', source: 'jira' },
+  ];
+  const outcome = syncTaskSources(
+    board,
+    [source({ format: 'tasks' })],
+    makeDeps({ 'gh issue list': result(JSON.stringify(payload)) }).deps,
+  );
+
+  assert.equal(outcome.added[0]?.parentId, 'source:jira:T-1');
+});
+
 function fakeForegroundTerminal(behavior: {
   spawnOk?: boolean;
   write?: (directory: string) => void;
@@ -384,6 +505,49 @@ test('runs foreground sources in a terminal and closes it', (t) => {
   assert.ok(
     fake.calls.some((call) => call === 'title:Kaygent sync · github'),
   );
+});
+
+test('foreground sync scripts receive the board tasks file', (t) => {
+  const directory = mkdtempSync(join(tmpdir(), 'kaygent-fg-input-'));
+  t.after(() => rmSync(directory, { recursive: true, force: true }));
+  let taskFileText = '';
+  let wrapperText = '';
+
+  const fake = fakeForegroundTerminal({
+    write: (dir) => {
+      taskFileText = readFileSync(join(dir, 'tasks.json'), 'utf8');
+      const wrapper =
+        process.platform === 'win32' ? 'sync.cmd' : 'sync.sh';
+      wrapperText = readFileSync(join(dir, wrapper), 'utf8');
+      writeFileSync(join(dir, 'output.json'), JSON.stringify([]), 'utf8');
+      writeFileSync(join(dir, 'exit.code'), '0', 'utf8');
+    },
+  });
+
+  const board = createEmptyBoard();
+  board.columns.paused.push({
+    id: 'paused-1',
+    title: 'Paused task',
+    tags: [],
+    createdAt: NOW.toISOString(),
+    updatedAt: NOW.toISOString(),
+  });
+
+  syncTaskSources(
+    board,
+    [source({ runMode: 'foreground', timeoutMs: 1_000 })],
+    {
+      ...makeDeps({}).deps,
+      terminal: fake.terminal,
+      platform: process.platform,
+      tmpDir: directory,
+    },
+  );
+
+  assert.match(wrapperText, /KAYGENT_TASKS_FILE/);
+  const snapshot = JSON.parse(taskFileText);
+  assert.equal(snapshot.tasks[0]?.id, 'paused-1');
+  assert.equal(snapshot.tasks[0]?.stage, 'paused');
 });
 
 test('closes the foreground terminal when the source times out', (t) => {

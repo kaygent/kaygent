@@ -89,6 +89,25 @@ test('parses column and terminal overrides', () => {
   assert.equal(config.terminal.custom.close, '');
 });
 
+test('parses workspace root and activation command', () => {
+  const { config, warnings } = parseConfig({
+    workspace: {
+      root: 'workspaces',
+      command: 'node scripts/workspace.js',
+    },
+  });
+
+  assert.deepEqual(warnings, []);
+  assert.equal(
+    config.workspace.root,
+    resolve(process.cwd(), 'workspaces'),
+  );
+  assert.deepEqual(config.workspace.command, [
+    'node',
+    'scripts/workspace.js',
+  ]);
+});
+
 test('falls back safely for invalid values', () => {
   const { config, warnings } = parseConfig({
     terminal: {

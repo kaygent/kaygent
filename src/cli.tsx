@@ -9,6 +9,7 @@ import { runSelfTest } from './selftest';
 import { createTerminalController } from './terminal';
 import { applyStageOverrides } from './theme';
 import { APP_NAME, VERSION } from './version';
+import { createWorkspaceService } from './workspace';
 
 interface Options {
   demo: boolean;
@@ -156,6 +157,9 @@ async function main(): Promise<void> {
   const sourceService = options.demo
     ? undefined
     : createTaskSourceService(loadedConfig.config.taskSources, { terminal });
+  const workspaceService = options.demo
+    ? undefined
+    : createWorkspaceService(loadedConfig.config.workspace, { terminal });
 
   const useAltScreen =
     !options.noAlt &&
@@ -248,6 +252,7 @@ async function main(): Promise<void> {
         initialNotice={initialNotice}
         terminal={terminal}
         taskSources={sourceService?.enabled ? sourceService : undefined}
+        workspace={workspaceService?.enabled ? workspaceService : undefined}
       />,
       {
         exitOnCtrlC: true,

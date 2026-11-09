@@ -91,6 +91,7 @@ your data:
   Separate tags with commas or spaces. A leading `#` is optional.
 - **Reorder tasks** inside a column with `[` and `]`.
 - **Move tasks** between stages with `<` / `>`, `Space`, or Shift + arrow keys.
+  Jump directly with `N`, `A`, `P`, or `C`; direct moves ask for confirmation.
 - **Delete with confirmation** using `d` or the Delete key.
 - **Autosave** after every change, with an atomic write to a local JSON file.
   Terminal session handles are saved with the board.
@@ -113,6 +114,7 @@ your data:
 | `d` / `Delete` | Delete the selected task (asks for confirmation) |
 | `<` / `>` | Move the task to the previous / next stage |
 | `Space` | Advance the task to the next stage |
+| `N` / `A` / `P` / `C` | Move the task directly to New / Active / Paused / Completed (asks for confirmation) |
 | `[` / `]` | Reorder the task up / down |
 | `r` | Sync new tasks from configured task sources |
 | `?` | Open or close the keyboard guide |
@@ -120,7 +122,8 @@ your data:
 | `Esc` | Cancel an edit, close a dialog, or close the guide |
 
 Inside an add/edit dialog: `Tab` or `↑↓` switches fields, `Enter` saves, and
-`Esc` cancels. In the delete dialog: `y` / `Enter` confirms, `n` / `Esc` cancels.
+`Esc` cancels. In the delete or direct-move dialog: `y` / `Enter` confirms,
+`n` / `Esc` cancels.
 
 ## Terminal handoff
 
@@ -193,6 +196,10 @@ defaults. Invalid values are ignored with a warning shown in the footer.
       "runMode": "background"
     }
   ],
+  "workspace": {
+    "root": "C:/work",
+    "command": ["node", "scripts/workspace.js"]
+  },
   "terminal": {
     "provider": "auto",
     "command": ["claude", "{title}"],
@@ -237,11 +244,69 @@ shell-quoted before substitution.
 The command runs with your user privileges. Treat the config file as trusted
 local configuration.
 
+### Workspace scripts
+
+Set `workspace.root` and `workspace.command` to run a script in a new terminal
+tab whenever a task moves from **New** to **Active**:
+
+```json
+{
+  "workspace": {
+    "root": "C:/work",
+    "command": ["node", "scripts/workspace.js"]
+  }
+}
+```
+
+The script runs with its working directory set to `workspace.root`. The final
+argument is the path to a temporary JSON file describing the selected task. If
+your command needs the path in a specific position, use the `{taskFile}`
+placeholder instead; otherwise it is appended as the last argument.
+
+```json
+{
+  "generatedAt": "2026-11-09T10:00:00.000Z",
+  "previousStage": "new",
+  "stage": "active",
+  "workspaceRoot": "C:/work",
+  "taskFile": "C:/Users/you/AppData/Local/Temp/kaygent-workspace-.../task.json",
+  "task": {
+    "id": "task-id",
+    "title": "Fix login",
+    "description": "Details from the source",
+    "tags": ["work"],
+    "parentId": "parent-id",
+    "source": {
+      "sourceName": "jira",
+      "itemId": "PROJ-123"
+    },
+    "createdAt": "2026-11-09T09:00:00.000Z",
+    "updatedAt": "2026-11-09T10:00:00.000Z"
+  }
+}
+```
+
+When a workspace command is configured and a terminal is available, it replaces
+the normal agent launch for New → Active. The script is responsible for creating
+the workspace and, if desired, starting the agent there. Without a workspace
+command, the standard terminal handoff in the next section runs.
+
+The script's tab is saved as the task session, so `Enter` can focus it. Moving
+to Paused closes it when `terminal.pauseBehavior` is `close`; moving to
+Completed or back to New always closes it. The input file is left in the OS temp
+directory so the script can read it asynchronously.
+
 ### Task sources
 
 `taskSources` is an array of independent feeds. Kaygent runs each command in a
 shell, expects JSON on stdout, and appends new items to the New column. Press
 `r` to sync manually; sources with `syncOnStart: true` also run once at startup.
+
+Every source command receives `KAYGENT_TASKS_FILE`, the path to a temporary JSON
+file containing the current board: all tasks in New, Active, Paused, and
+Completed, with their `stage`, description, tags, parent id, and source
+metadata. Background commands receive it through the environment; foreground
+commands get it exported in their generated tab script.
 
 | Key | Required | Default | Meaning |
 | --- | --- | --- | --- |
@@ -262,9 +327,11 @@ one interval after launch. `r` remains the manual sync-all shortcut, and
 In `foreground` mode Kaygent opens a terminal tab or window through the configured
 terminal provider (honoring `terminal.newWindow`), focuses it, runs the source
 command, waits for it to finish, reads its JSON output, and closes the tab.
-Stdout is captured to a temporary file; stderr stays visible in the tab. This is
-useful for sources that need interactive authentication. Foreground sources
-block the board until they finish or `timeoutMs` expires.
+Stdout is captured to a temporary file; stderr stays visible in the tab. The
+script can read `KAYGENT_TASKS_FILE` to inspect the current board before
+returning its JSON. This is useful for sources that need interactive
+authentication. Foreground sources block the board until they finish or
+`timeoutMs` expires.
 
 Accepted output shapes:
 
@@ -297,13 +364,47 @@ Tasks example:
 {
   "tasks": [
     {
-      "id": "PROJ-42",
+      "nativeId": "PROJ-42",
       "title": "Ship the release",
+      "description": "Coordinate the release checklist.",
+      "source": "jira",
       "tags": ["jira", "release"],
       "url": "https://jira.example.com/browse/PROJ-42",
       "createdAt": "2026-03-01T09:00:00.000Z"
+    },
+    {
+      "nativeId": "PROJ-43",
+      "title": "Update release notes",
+      "parentId": "PROJ-42",
+      "source": "jira"
     }
   ]
+}
+```
+
+Each task needs a stable native `id` (or `nativeId`) and a `title`. Optional
+fields:
+
+| Field | Meaning |
+| --- | --- |
+| `description` | Stored on the task and passed to workspace scripts |
+| `parentId` | Parent task's native id; resolved to its Kaygent id when possible |
+| `source` | Source name for this item; overrides the configured `sourceName` |
+| `tags` / `labels` | Tags added to the task |
+| `url` | Link back to the source item |
+| `createdAt` | Original item timestamp |
+
+To sync the full board from one script, run it in a foreground tab and have it
+read `KAYGENT_TASKS_FILE`. Return the complete desired task list; Kaygent diffs
+it against the board by native id and adds only new tasks to New:
+
+```json
+{
+  "sourceName": "sync",
+  "command": "node scripts/sync.js",
+  "format": "tasks",
+  "runMode": "foreground",
+  "syncOnStart": true
 }
 ```
 

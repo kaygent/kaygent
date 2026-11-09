@@ -64,6 +64,8 @@ type ItemKind = 'messages' | 'tasks';
 
 const ID_KEYS = [
   'id',
+  'nativeId',
+  'native_id',
   'uid',
   'guid',
   'messageId',
@@ -76,6 +78,16 @@ const ID_KEYS = [
   'ts',
   'message_ts',
 ] as const;
+
+const PARENT_KEYS = [
+  'parentId',
+  'parent_id',
+  'parentTaskId',
+  'parent_task_id',
+  'parent',
+] as const;
+
+const SOURCE_KEYS = ['source', 'sourceName', 'source_name'] as const;
 
 const TITLE_KEYS = ['title', 'subject', 'summary', 'name'] as const;
 
@@ -259,6 +271,21 @@ function itemKey(
   return { key: `h:${contentHash}`, itemId: `h:${contentHash}` };
 }
 
+function readSourceName(
+  record: Record<string, unknown>,
+): string | undefined {
+  const direct = readString(record, SOURCE_KEYS);
+  if (direct) {
+    return direct;
+  }
+
+  if (isRecord(record.source)) {
+    return readString(record.source, ['sourceName', 'source_name', 'name']);
+  }
+
+  return undefined;
+}
+
 export function convertSourceItem(
   source: TaskSourceSettings,
   item: unknown,
@@ -274,24 +301,28 @@ export function convertSourceItem(
     return undefined;
   }
 
+  const sourceName = readSourceName(item) ?? source.sourceName;
   const body = readString(item, BODY_KEYS);
   const url = readString(item, URL_KEYS);
-  const key = itemKey(source.sourceName, item, kind, title, body, url);
+  const parentId = readString(item, PARENT_KEYS);
+  const key = itemKey(sourceName, item, kind, title, body, url);
   if (!key) {
     return undefined;
   }
 
   const createdAt = readDate(item, DATE_KEYS) ?? now.toISOString();
   const sourceRef: TaskSourceRef = {
-    sourceName: source.sourceName,
+    sourceName,
     itemId: key.itemId,
     ...(url ? { url } : {}),
   };
 
   return {
-    id: `source:${source.sourceName}:${key.key}`,
+    id: `source:${sourceName}:${key.key}`,
     title,
+    ...(body ? { description: body } : {}),
     tags: parseTags([...source.tags, ...readTags(item)]),
+    ...(parentId ? { parentId } : {}),
     createdAt,
     updatedAt: now.toISOString(),
     source: sourceRef,
@@ -361,22 +392,77 @@ function parseSourceOutput(
   return extracted;
 }
 
+/**
+ * Snapshot of every task on the board, given to sync scripts through the
+ * KAYGENT_TASKS_FILE environment variable.
+ */
+export function buildBoardSnapshot(board: Board, generatedAt: Date): string {
+  return `${JSON.stringify(
+    {
+      generatedAt: generatedAt.toISOString(),
+      tasks: STAGE_IDS.flatMap((stage) =>
+        board.columns[stage].map((task) => ({
+          id: task.id,
+          title: task.title,
+          ...(task.description ? { description: task.description } : {}),
+          stage,
+          tags: task.tags,
+          ...(task.parentId ? { parentId: task.parentId } : {}),
+          ...(task.source
+            ? {
+                source: task.source.sourceName,
+                sourceItemId: task.source.itemId,
+                ...(task.source.url ? { sourceUrl: task.source.url } : {}),
+              }
+            : {}),
+          createdAt: task.createdAt,
+          updatedAt: task.updatedAt,
+        })),
+      ),
+    },
+    null,
+    2,
+  )}\n`;
+}
+
+function writeBoardSnapshot(
+  board: Board,
+  directory: string,
+  generatedAt: Date,
+): string {
+  const taskFile = join(directory, 'tasks.json');
+  writeFileSync(taskFile, buildBoardSnapshot(board, generatedAt), 'utf8');
+  return taskFile;
+}
+
 function runBackgroundSource(
   source: TaskSourceSettings,
+  board: Board,
   deps: SourceDeps,
+  now: Date,
 ): SourcePayload {
-  const result = deps.runShell(source.command, {
-    cwd: source.cwd ?? deps.cwd,
-    timeoutMs: source.timeoutMs,
-  });
+  const directory = mkdtempSync(
+    join(deps.tmpDir ?? tmpdir(), 'kaygent-source-'),
+  );
+  const taskFile = writeBoardSnapshot(board, directory, now);
 
-  if (result.error || result.status !== 0) {
-    return {
-      error: failureMessage(`${source.sourceName} command failed`, result),
-    };
+  try {
+    const result = deps.runShell(source.command, {
+      cwd: source.cwd ?? deps.cwd,
+      timeoutMs: source.timeoutMs,
+      env: { ...process.env, KAYGENT_TASKS_FILE: taskFile },
+    });
+
+    if (result.error || result.status !== 0) {
+      return {
+        error: failureMessage(`${source.sourceName} command failed`, result),
+      };
+    }
+
+    return parseSourceOutput(source, result.stdout);
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
   }
-
-  return parseSourceOutput(source, result.stdout);
 }
 
 function defaultSleep(milliseconds: number): void {
@@ -390,7 +476,9 @@ function defaultSleep(milliseconds: number): void {
 
 function runForegroundSource(
   source: TaskSourceSettings,
+  board: Board,
   deps: SourceDeps,
+  now: Date,
 ): SourcePayload {
   const terminal = deps.terminal;
   if (!terminal) {
@@ -404,6 +492,7 @@ function runForegroundSource(
   const directory = mkdtempSync(
     join(deps.tmpDir ?? tmpdir(), 'kaygent-source-'),
   );
+  const taskFile = writeBoardSnapshot(board, directory, now);
   const outputPath = join(directory, 'output.json');
   const exitPath = join(directory, 'exit.code');
   let session: TerminalSession | undefined;
@@ -416,6 +505,7 @@ function runForegroundSource(
         scriptPath,
         [
           '@echo off',
+          `set "KAYGENT_TASKS_FILE=${taskFile}"`,
           `${source.command} > "${outputPath}"`,
           `echo %ERRORLEVEL% > "${exitPath}"`,
         ].join('\r\n'),
@@ -428,6 +518,7 @@ function runForegroundSource(
         scriptPath,
         [
           '#!/bin/sh',
+          `export KAYGENT_TASKS_FILE='${taskFile}'`,
           `${source.command} > '${outputPath}'`,
           `echo $? > '${exitPath}'`,
         ].join('\n'),
@@ -496,11 +587,67 @@ function runForegroundSource(
 
 function runSource(
   source: TaskSourceSettings,
+  board: Board,
   deps: SourceDeps,
+  now: Date,
 ): SourcePayload {
   return source.runMode === 'foreground'
-    ? runForegroundSource(source, deps)
-    : runBackgroundSource(source, deps);
+    ? runForegroundSource(source, board, deps, now)
+    : runBackgroundSource(source, board, deps, now);
+}
+
+/**
+ * Turn parent references from a source payload into Kaygent task ids where
+ * possible. A reference may already be an internal id, a native id from the
+ * same source, or a unique native id elsewhere on the board.
+ */
+function resolveParentIds(tasks: Task[], board: Board): void {
+  const knownIds = new Set<string>();
+  const sourceItems = new Map<string, string>();
+  const nativeIds = new Map<string, string[]>();
+
+  const index = (task: Task) => {
+    knownIds.add(task.id);
+    if (!task.source) {
+      return;
+    }
+    sourceItems.set(
+      `${task.source.sourceName}\u0000${task.source.itemId}`,
+      task.id,
+    );
+    const ids = nativeIds.get(task.source.itemId) ?? [];
+    ids.push(task.id);
+    nativeIds.set(task.source.itemId, ids);
+  };
+
+  for (const stage of STAGE_IDS) {
+    for (const task of board.columns[stage]) {
+      index(task);
+    }
+  }
+  for (const task of tasks) {
+    index(task);
+  }
+
+  for (const task of tasks) {
+    if (!task.parentId || knownIds.has(task.parentId)) {
+      continue;
+    }
+
+    const sourceName = task.source?.sourceName;
+    const sameSource = sourceName
+      ? sourceItems.get(`${sourceName}\u0000${task.parentId}`)
+      : undefined;
+    if (sameSource) {
+      task.parentId = sameSource;
+      continue;
+    }
+
+    const candidates = nativeIds.get(task.parentId);
+    if (candidates?.length === 1) {
+      task.parentId = candidates[0];
+    }
+  }
 }
 
 export function syncTaskSources(
@@ -534,7 +681,7 @@ export function syncTaskSources(
   for (const source of selected) {
     let result: SourcePayload;
     try {
-      result = runSource(source, deps);
+      result = runSource(source, board, deps, now);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       errors.push({ sourceName: source.sourceName, error: message });
@@ -562,6 +709,8 @@ export function syncTaskSources(
       added.push(task);
     }
   }
+
+  resolveParentIds(added, board);
 
   if (added.length === 0) {
     return {

@@ -21,6 +21,7 @@ import { DeletePanel } from './components/DeletePanel';
 import { Footer } from './components/Footer';
 import { Header } from './components/Header';
 import { HelpPanel } from './components/HelpPanel';
+import { MovePanel } from './components/MovePanel';
 import { StageTabs } from './components/StageTabs';
 import { TaskForm } from './components/TaskForm';
 import { useTerminalSize, type Viewport } from './hooks/use-terminal-size';
@@ -30,6 +31,7 @@ import type { Notice, SaveState } from './notice';
 import type { SourceSyncResult, TaskSourceService } from './sources';
 import type { TerminalControl } from './terminal';
 import { palette, stageUi } from './theme';
+import type { WorkspaceService } from './workspace';
 
 type FieldName = 'title' | 'tags';
 
@@ -42,6 +44,7 @@ type ModalState =
       initialFocus: FieldName;
     }
   | { kind: 'delete'; stage: Stage; task: Task }
+  | { kind: 'move'; stage: Stage; task: Task; toStage: Stage }
   | { kind: 'help' };
 
 interface AppProps {
@@ -54,11 +57,20 @@ interface AppProps {
   terminal?: TerminalControl;
   /** Pulls new tasks from configured external sources. */
   taskSources?: TaskSourceService;
+  /** Runs the configured workspace script when a task enters Active. */
+  workspace?: WorkspaceService;
 }
 
 function emptyCursors(): Record<Stage, number> {
   return { new: 0, active: 0, paused: 0, completed: 0 };
 }
+
+const DIRECT_STAGE_KEYS: Record<string, Stage> = {
+  N: 'new',
+  A: 'active',
+  P: 'paused',
+  C: 'completed',
+};
 
 interface PlayState {
   board: Board;
@@ -81,6 +93,7 @@ export function App({
   viewport: viewportOverride,
   terminal,
   taskSources,
+  workspace,
 }: AppProps) {
   const viewport = useTerminalSize(viewportOverride);
   const layout = computeLayout(viewport.columns, viewport.rows);
@@ -118,6 +131,8 @@ export function App({
   terminalControl.current = terminal;
   const sourceService = useRef(taskSources);
   sourceService.current = taskSources;
+  const workspaceService = useRef(workspace);
+  workspaceService.current = workspace;
 
   useEffect(() => {
     if (initialRender.current) {
@@ -386,21 +401,127 @@ export function App({
     };
   }, []);
 
-  const moveSelectedTo = (direction: -1 | 1) => {
+  const performMove = (
+    fromStage: Stage,
+    index: number,
+    targetStage: Stage,
+  ) => {
     const currentState = playRef.current;
-    const stage = currentState.focusedStage;
-    const tasks = currentState.board.columns[stage];
-    const index = selectedIndexFor(currentState, stage);
+    const tasks = currentState.board.columns[fromStage];
     const task = tasks[index];
 
     if (!task) {
       setNotice({
-        text: `No task selected in ${stageUi[stage].name}.`,
+        text: `No task selected in ${stageUi[fromStage].name}.`,
         tone: 'info',
       });
       return;
     }
 
+    const result = moveTask(currentState.board, fromStage, index, targetStage);
+    if (!result.moved) {
+      return;
+    }
+
+    const terminal = terminalControl.current;
+    const workspace = workspaceService.current;
+    let nextBoard = result.board;
+    let terminalText = '';
+    let tone: Notice['tone'] = 'success';
+
+    if (targetStage === 'active') {
+      if (task.session) {
+        if (terminal) {
+          const focused = terminal.focus(task.session);
+          if (focused.ok) {
+            terminalText = `Focused ${task.session.provider} for “${task.title}”.`;
+          } else {
+            terminalText = `Could not focus the terminal: ${focused.error ?? 'unknown error'}.`;
+            tone = 'warning';
+          }
+        }
+      } else if (fromStage === 'new' && workspace?.enabled) {
+        const activated = workspace.activate(task, fromStage, targetStage);
+        if (activated.ok) {
+          if (activated.session) {
+            nextBoard = setTaskSession(
+              nextBoard,
+              targetStage,
+              task.id,
+              activated.session,
+            );
+          }
+          terminalText = `Ran the workspace script for “${task.title}”.`;
+        } else {
+          terminalText = `Could not run the workspace script: ${activated.error ?? 'unknown error'}.`;
+          tone = 'warning';
+        }
+      } else if (terminal) {
+        const spawned = terminal.spawn(task);
+        if (spawned.ok && spawned.session) {
+          nextBoard = setTaskSession(
+            nextBoard,
+            targetStage,
+            task.id,
+            spawned.session,
+          );
+          terminalText = `Launched ${terminal.provider} for “${task.title}”.`;
+        } else {
+          terminalText = `Could not launch a terminal: ${spawned.error ?? 'unknown error'}.`;
+          tone = 'warning';
+        }
+      }
+    } else if (task.session && terminal) {
+      const closeOnPause =
+        targetStage === 'paused' && terminal.pauseBehavior === 'close';
+      const closeOnFinish =
+        targetStage === 'completed' || targetStage === 'new';
+
+      if (closeOnPause || closeOnFinish) {
+        const closed = terminal.close(task.session);
+        if (closed.ok) {
+          nextBoard = setTaskSession(
+            nextBoard,
+            targetStage,
+            task.id,
+            undefined,
+          );
+          terminalText = 'Terminal closed.';
+        } else {
+          terminalText = `Could not close the terminal: ${closed.error ?? 'unknown error'}.`;
+          tone = 'warning';
+        }
+      } else if (targetStage === 'paused') {
+        terminalText = 'Terminal kept open.';
+      }
+    }
+
+    const baseText =
+      targetStage === 'completed'
+        ? `Completed “${task.title}”.`
+        : `Moved “${task.title}” to ${stageUi[targetStage].name}.`;
+
+    commitPlay({
+      board: nextBoard,
+      focusedStage: targetStage,
+      cursors: {
+        ...currentState.cursors,
+        [fromStage]: Math.min(
+          currentState.cursors[fromStage],
+          Math.max(0, tasks.length - 2),
+        ),
+        [targetStage]: result.toIndex,
+      },
+    });
+    setNotice({
+      text: [baseText, terminalText].filter(Boolean).join(' '),
+      tone,
+    });
+  };
+
+  const moveSelectedTo = (direction: -1 | 1) => {
+    const currentState = playRef.current;
+    const stage = currentState.focusedStage;
     const currentStageIndex = STAGE_IDS.indexOf(stage);
     const targetStage = STAGE_IDS[currentStageIndex + direction];
 
@@ -415,88 +536,47 @@ export function App({
       return;
     }
 
-    const result = moveTask(currentState.board, stage, index, targetStage);
-    if (!result.moved) {
+    performMove(stage, selectedIndexFor(currentState, stage), targetStage);
+  };
+
+  const openMoveConfirm = (toStage: Stage) => {
+    const currentState = playRef.current;
+    const stage = currentState.focusedStage;
+    const index = selectedIndexFor(currentState, stage);
+    const task = currentState.board.columns[stage][index];
+
+    if (!task) {
+      setNotice({
+        text: `No task selected in ${stageUi[stage].name}.`,
+        tone: 'info',
+      });
       return;
     }
 
-    const terminal = terminalControl.current;
-    let nextBoard = result.board;
-    let terminalText = '';
-    let tone: Notice['tone'] = 'success';
-
-    if (terminal) {
-      if (targetStage === 'active') {
-        if (task.session) {
-          const focused = terminal.focus(task.session);
-          if (focused.ok) {
-            terminalText = `Focused ${task.session.provider} for “${task.title}”.`;
-          } else {
-            terminalText = `Could not focus the terminal: ${focused.error ?? 'unknown error'}.`;
-            tone = 'warning';
-          }
-        } else {
-          const spawned = terminal.spawn(task);
-          if (spawned.ok && spawned.session) {
-            nextBoard = setTaskSession(
-              nextBoard,
-              targetStage,
-              task.id,
-              spawned.session,
-            );
-            terminalText = `Launched ${terminal.provider} for “${task.title}”.`;
-          } else {
-            terminalText = `Could not launch a terminal: ${spawned.error ?? 'unknown error'}.`;
-            tone = 'warning';
-          }
-        }
-      } else if (task.session) {
-        const closeOnPause =
-          targetStage === 'paused' && terminal.pauseBehavior === 'close';
-        const closeOnFinish =
-          targetStage === 'completed' || targetStage === 'new';
-
-        if (closeOnPause || closeOnFinish) {
-          const closed = terminal.close(task.session);
-          if (closed.ok) {
-            nextBoard = setTaskSession(
-              nextBoard,
-              targetStage,
-              task.id,
-              undefined,
-            );
-            terminalText = 'Terminal closed.';
-          } else {
-            terminalText = `Could not close the terminal: ${closed.error ?? 'unknown error'}.`;
-            tone = 'warning';
-          }
-        } else if (targetStage === 'paused') {
-          terminalText = 'Terminal kept open.';
-        }
-      }
+    if (stage === toStage) {
+      setNotice({
+        text: `“${task.title}” is already in ${stageUi[stage].name}.`,
+        tone: 'info',
+      });
+      return;
     }
 
-    const baseText =
-      targetStage === 'completed'
-        ? `Completed “${task.title}”.`
-        : `Moved “${task.title}” to ${stageUi[targetStage].name}.`;
+    setModal({ kind: 'move', stage, task, toStage });
+  };
 
-    commitPlay({
-      board: nextBoard,
-      focusedStage: targetStage,
-      cursors: {
-        ...currentState.cursors,
-        [stage]: Math.min(
-          currentState.cursors[stage],
-          Math.max(0, tasks.length - 2),
-        ),
-        [targetStage]: result.toIndex,
-      },
-    });
-    setNotice({
-      text: [baseText, terminalText].filter(Boolean).join(' '),
-      tone,
-    });
+  const confirmMove = (target: Extract<ModalState, { kind: 'move' }>) => {
+    const currentState = playRef.current;
+    const index = currentState.board.columns[target.stage].findIndex(
+      (task) => task.id === target.task.id,
+    );
+    setModal(null);
+
+    if (index === -1) {
+      setNotice({ text: 'That task no longer exists.', tone: 'error' });
+      return;
+    }
+
+    performMove(target.stage, index, target.toStage);
   };
 
   const reorderSelected = (delta: -1 | 1) => {
@@ -711,6 +791,12 @@ export function App({
         return;
       }
 
+      const directStage = DIRECT_STAGE_KEYS[input];
+      if (directStage) {
+        openMoveConfirm(directStage);
+        return;
+      }
+
       if (input.toLowerCase() === 'q') {
         exit();
         return;
@@ -806,6 +892,7 @@ export function App({
   const formWidth = Math.min(76, layout.columns - 6);
   const helpWidth = Math.min(88, layout.columns - 6);
   const deleteWidth = Math.min(60, layout.columns - 6);
+  const moveWidth = Math.min(60, layout.columns - 6);
 
   let modalContent = null;
 
@@ -821,6 +908,17 @@ export function App({
         panelWidth={deleteWidth}
         onCancel={() => setModal(null)}
         onConfirm={() => confirmDelete(modal)}
+      />
+    );
+  } else if (modal?.kind === 'move') {
+    modalContent = (
+      <MovePanel
+        task={modal.task}
+        fromStage={modal.stage}
+        toStage={modal.toStage}
+        panelWidth={moveWidth}
+        onCancel={() => setModal(null)}
+        onConfirm={() => confirmMove(modal)}
       />
     );
   } else if (modal?.kind === 'add') {

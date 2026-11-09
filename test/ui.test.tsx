@@ -15,6 +15,7 @@ import type {
   TerminalControl,
   TerminalSession,
 } from '../src/terminal';
+import type { WorkspaceService } from '../src/workspace';
 
 const VIEWPORT = { columns: 120, rows: 32 };
 
@@ -66,6 +67,7 @@ function mount(
   viewport = VIEWPORT,
   terminal?: TerminalControl,
   taskSources?: TaskSourceService,
+  workspace?: WorkspaceService,
 ): ReturnType<typeof render> {
   const app = render(
     <App
@@ -74,6 +76,7 @@ function mount(
       viewport={viewport}
       terminal={terminal}
       taskSources={taskSources}
+      workspace={workspace}
       initialNotice={{ text: 'Test board', tone: 'info' }}
     />,
   );
@@ -208,6 +211,119 @@ test('navigates tasks and advances stages with Space', async (t) => {
 
   await press(app, ' ');
   assert.match(frame(app), /Moved “Beta task” to Paused\./);
+});
+
+test('asks for confirmation before a direct stage move', async (t) => {
+  const app = mount(t, boardWithTasks());
+
+  await press(app, 'P');
+  assert.match(frame(app), /MOVE TASK/);
+  assert.match(frame(app), /Alpha task/);
+  assert.match(frame(app), /moves the task to Paused/);
+
+  await press(app, 'n');
+  assert.doesNotMatch(frame(app), /MOVE TASK/);
+
+  await press(app, 'P');
+  await press(app, 'y');
+  await delay(120);
+  assert.match(frame(app), /Moved “Alpha task” to Paused\./);
+});
+
+test('direct move to Completed closes the terminal after confirmation', async (t) => {
+  const closed: string[] = [];
+  const terminal: TerminalControl = {
+    provider: 'fake',
+    pauseBehavior: 'keep',
+    focusOnEnter: true,
+    spawn: () => ({ ok: false, error: 'not used' }),
+    spawnCommand: () => ({ ok: false, error: 'not used' }),
+    focus: () => ({ ok: true }),
+    close: (session) => {
+      closed.push(session.id);
+      return { ok: true };
+    },
+  };
+  const board = createEmptyBoard();
+  board.columns.active = [
+    {
+      id: 'active-1',
+      title: 'Active task',
+      tags: [],
+      createdAt: '2026-01-01T10:00:00.000Z',
+      updatedAt: '2026-01-01T10:00:00.000Z',
+      session: {
+        provider: 'fake',
+        id: 'session-1',
+        createdAt: '2026-01-01T10:00:00.000Z',
+      },
+    },
+  ];
+  const app = mount(t, board, undefined, VIEWPORT, terminal);
+
+  await press(app, '2');
+  await press(app, 'C');
+  assert.match(frame(app), /MOVE TASK/);
+  assert.match(frame(app), /closes its terminal/);
+
+  await press(app, '\r');
+  await delay(120);
+  assert.deepEqual(closed, ['session-1']);
+  assert.match(frame(app), /Completed “Active task”\./);
+});
+
+test('runs the workspace script instead of an agent on New to Active', async (t) => {
+  const activations: string[] = [];
+  let spawns = 0;
+  const workspace: WorkspaceService = {
+    enabled: true,
+    activate(task) {
+      activations.push(task.title);
+      return {
+        ok: true,
+        session: {
+          provider: 'workspace',
+          id: 'workspace-1',
+          title: `Kaygent workspace · ${task.title}`,
+          createdAt: '2026-01-01T10:00:00.000Z',
+        },
+      };
+    },
+  };
+  const terminal: TerminalControl = {
+    provider: 'fake',
+    pauseBehavior: 'keep',
+    focusOnEnter: true,
+    spawn: () => {
+      spawns += 1;
+      return { ok: false, error: 'not used' };
+    },
+    spawnCommand: () => ({ ok: false, error: 'not used' }),
+    focus: () => ({ ok: true }),
+    close: () => ({ ok: true }),
+  };
+  const saves: Board[] = [];
+  const app = mount(
+    t,
+    boardWithTasks(),
+    (next) => saves.push(next),
+    VIEWPORT,
+    terminal,
+    undefined,
+    workspace,
+  );
+
+  await press(app, 'A');
+  await press(app, '\r');
+  await delay(180);
+
+  assert.deepEqual(activations, ['Alpha task']);
+  assert.equal(spawns, 0);
+  assert.match(frame(app), /Ran the workspace script for “Alpha task”\./);
+  assert.equal(
+    saves.at(-1)?.columns.active[0]?.session?.provider,
+    'workspace',
+  );
 });
 
 test('returns to the New column after adding a task from another column', async (t) => {

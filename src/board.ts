@@ -15,7 +15,11 @@ export interface TaskSourceRef {
 export interface Task {
   id: string;
   title: string;
+  /** Free-form details imported from a source or supplied by an integration. */
+  description?: string;
   tags: string[];
+  /** Native id of a parent task, when the source provides one. */
+  parentId?: string;
   createdAt: string;
   updatedAt: string;
   /** Terminal session spawned when this task entered Active. */

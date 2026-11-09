@@ -118,6 +118,28 @@ test('round-trips task source metadata', (t) => {
   });
 });
 
+test('round-trips task descriptions and parent ids', (t) => {
+  const directory = tempDirectory(t);
+  const filePath = join(directory, 'board.json');
+  const board = createEmptyBoard();
+  board.columns.new = [
+    {
+      id: 'child',
+      title: 'Child task',
+      description: 'Details from the source',
+      parentId: 'source:jira:PROJ-1',
+      tags: [],
+      createdAt: NOW.toISOString(),
+      updatedAt: NOW.toISOString(),
+    },
+  ];
+
+  saveBoard(board, filePath);
+  const loaded = loadBoard(filePath);
+
+  assert.deepEqual(loaded.board.columns.new[0], board.columns.new[0]);
+});
+
 test('migrates legacy inprogress columns to paused', (t) => {
   const directory = tempDirectory(t);
   const filePath = join(directory, 'board.json');

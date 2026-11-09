@@ -1,7 +1,7 @@
-export type ModalKind = 'add' | 'edit' | 'delete' | 'help';
+export type ModalKind = 'add' | 'edit' | 'delete' | 'move' | 'help';
 
 const hints = {
-  full: '←→ columns · ↑↓ tasks · a add · e edit · t tags · d delete · < > stage · [ ] reorder · Space advance · ↵ focus · r sync · ? help · q quit',
+  full: '←→ columns · ↑↓ tasks · a add · e edit · t tags · d delete · < > stage · NAPC jump · [ ] reorder · Space advance · ↵ focus · r sync · ? help · q quit',
   medium:
     '←→ cols · ↑↓ tasks · a add · e edit · t tags · d delete · <> stage · [] reorder · ↵ focus · r sync · ? help · q quit',
   compact:
@@ -11,6 +11,7 @@ const hints = {
   tiny: '←→↑↓ nav · a add · e edit · d del · <> stage · ↵ focus · r sync · ? help',
   form: 'Tab / ↑↓  switch field  ·  Enter save  ·  Esc cancel',
   delete: 'y / Enter  delete  ·  n / Esc  cancel',
+  move: 'y / Enter  move  ·  n / Esc  cancel',
   help: 'Esc / ?  close help',
 } as const;
 
@@ -21,6 +22,10 @@ export function getKeyHints(modalKind: ModalKind | null, columns: number): strin
 
   if (modalKind === 'delete') {
     return hints.delete;
+  }
+
+  if (modalKind === 'move') {
+    return hints.move;
   }
 
   if (modalKind === 'help') {

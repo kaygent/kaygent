@@ -41,6 +41,7 @@ const sections: ShortcutSection[] = [
     shortcuts: [
       ['<>', 'change stage'],
       ['Spc', 'advance stage'],
+      ['NAPC', 'jump to stage'],
       ['[]', 'reorder'],
       ['?', 'show help'],
     ],
@@ -96,7 +97,7 @@ export function HelpPanel({ panelWidth, onClose }: HelpPanelProps) {
 
       <Box height={1} width={innerWidth}>
         <Text color={palette.muted} wrap="truncate-end">
-          ↵ on an Active task focuses its terminal  ·  moving to Active launches it
+          ↵ on an Active task focuses its terminal  ·  moving to Active launches it  ·  N A P C ask to confirm
         </Text>
       </Box>
 

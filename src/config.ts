@@ -58,9 +58,20 @@ export interface TerminalSettings {
   custom: CustomTerminalCommands;
 }
 
+export interface WorkspaceSettings {
+  /** Directory the activation script runs in; also the workspaces root. */
+  root: string;
+  /**
+   * Command run in a new tab when a task moves from New to Active. The task
+   * details file is appended as the final argument.
+   */
+  command: string[];
+}
+
 export interface KaygentConfig {
   columns: StageUiOverrides;
   terminal: TerminalSettings;
+  workspace: WorkspaceSettings;
   taskSources: TaskSourceSettings[];
 }
 
@@ -86,6 +97,10 @@ export const DEFAULT_CONFIG: KaygentConfig = {
       focus: '',
       close: '',
     },
+  },
+  workspace: {
+    root: process.cwd(),
+    command: [],
   },
 };
 
@@ -364,6 +379,20 @@ export function parseConfig(value: unknown): {
   }
 
   config.taskSources = parseTaskSources(value.taskSources, warnings);
+
+  if (isRecord(value.workspace)) {
+    if (nonEmptyString(value.workspace.root)) {
+      config.workspace.root = resolve(
+        process.cwd(),
+        value.workspace.root.trim(),
+      );
+    }
+
+    const command = readCommand(value.workspace.command, warnings);
+    if (command !== undefined) {
+      config.workspace.command = command;
+    }
+  }
 
   if (!isRecord(value.terminal)) {
     return { config, warnings };
